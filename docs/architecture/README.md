@@ -44,3 +44,4 @@
 | AD-13 | 控制平面 | 新增 `control-plane` 子系统，经 Helm SDK + K8s client 命令式开通（不依赖 Git/Argo） | 生产期租户开通不耦合 Git；Argo 仅管共享基座 | 已定 |
 | AD-14 | 公共依赖治理 | `libs-java` 出 parent+BOM+starter，发 GitHub Packages，子仓走 Maven 坐标引用 | 只拉子仓也能构建；内网交付镜像到私服 | 已定 |
 | AD-15 | 采集边界 | **元数据采集（governance，取结构·旁路）≠ 数据采集（data-foundation，搬数据·主链路）**，共用 Connector SPI + 数据源统一管理 | 连接器只实现一次、数据源引用态共享，产出/SLA/归属不同 | 已定 |
+| AD-16 | 元模型引擎 | governance **自研元模型引擎**（Atlas TypeDef 蓝本，Spring Boot+PG+ES）；OM/Atlas/DataHub 仅作采集来源 | 产品要运行期 UI 自定义元模型(继承/基数/作用域)，OM/DataHub 类型代码态不契合；自研利于多租户作用域/信创/甲方自维护 | 已定 |

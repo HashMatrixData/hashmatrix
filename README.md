@@ -22,7 +22,7 @@
 |--|--|--|--|
 | [`webui`](./services/webui) | 接入层 · 唯一前端仓 | **同仓双 app**：console（使用平面：控制台/大屏/画布）+ admin（管理平面：运营控制台） | React 19 · Vite · AntD v6 · AntV（**已定稿**） |
 | [`gateway`](./services/gateway) | 南北向网关 | 路由/限流/鉴权/审计 · 注入租户头 | APISIX · Keycloak OIDC |
-| [`governance`](./services/governance) | 应用层 · 数据治理 | 元数据/血缘/质量/数据标准 | Spring Boot · OpenMetadata · PostgreSQL |
+| [`governance`](./services/governance) | 应用层 · 数据治理 | 元数据/元模型引擎/血缘/质量/数据标准 | Spring Boot · 自研元模型引擎(Atlas 蓝本) · PostgreSQL · ES |
 | [`security`](./services/security) | 应用层 · 数据安全 | 分类分级/标签/审批/审计 | Spring Boot · Flowable · Prometheus |
 | [`tools-bi`](./services/tools-bi) | 应用层 · 数据工具 | 报表/自助分析/可视编排 | Spring Boot · DataEase · Doris |
 | [`privacy`](./services/privacy) | 应用层 · 隐私计算 | MPC/PSI/匿踪/节点互联 | SecretFlow(Python) · Java 编排 |
