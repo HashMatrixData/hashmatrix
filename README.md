@@ -31,7 +31,7 @@ hashmatrix/                     # 主仓：公共依赖 + 部署运维
 ## 克隆（含子模块）
 
 ```bash
-git clone --recurse-submodules git@github.com:JIAQIA/hashmatrix.git
+git clone --recurse-submodules git@github.com:HashMatrixData/hashmatrix.git
 # 已克隆主仓后补拉子模块：
 git submodule update --init --recursive
 ```
