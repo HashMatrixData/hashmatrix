@@ -43,3 +43,4 @@
 | AD-12 | 多租户模型 | C 分层 + Keycloak Organizations 单 realm + schema/db-per-tenant + namespace-per-tenant | 政企 ≤15，控制平面共享、数据平面按租户隔离；品牌部署级 | 已定 |
 | AD-13 | 控制平面 | 新增 `control-plane` 子系统，经 Helm SDK + K8s client 命令式开通（不依赖 Git/Argo） | 生产期租户开通不耦合 Git；Argo 仅管共享基座 | 已定 |
 | AD-14 | 公共依赖治理 | `libs-java` 出 parent+BOM+starter，发 GitHub Packages，子仓走 Maven 坐标引用 | 只拉子仓也能构建；内网交付镜像到私服 | 已定 |
+| AD-15 | 采集边界 | **元数据采集（governance，取结构·旁路）≠ 数据采集（data-foundation，搬数据·主链路）**，共用 Connector SPI + 数据源统一管理 | 连接器只实现一次、数据源引用态共享，产出/SLA/归属不同 | 已定 |
