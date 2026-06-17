@@ -8,6 +8,14 @@
 
 > 各子项目的**技术选型仍在逐个讨论中**，当前仅为初始脚手架。
 
+## 产品形态与多租户（北极星）
+
+**双模交付**：公网 SaaS（我们运营 · 统一**我们品牌** · 租户=企业）／私有化部署（客户环境 · **客户品牌**部署级 · 租户=客户部门）。品牌**部署级**、不按租户运行期换肤。多租户走 **C 分层桥接**：控制平面共享 + 数据平面按租户隔离（Keycloak Organizations 单 realm · schema/db-per-tenant · namespace-per-tenant），由 `control-plane` 编排开通。
+
+**本仓视角**：主仓承载全局模型——控制平面治理 + 公共依赖（`starter-tenant` 租户上下文）+ 部署（per-tenant Helm release）。
+
+> 详见 [`docs/00-主仓初始化-spec.md`](./docs/00-主仓初始化-spec.md)、[`docs/architecture/05-多租户与控制平面.md`](./docs/architecture/05-多租户与控制平面.md)。
+
 ## 仓库结构
 
 ```

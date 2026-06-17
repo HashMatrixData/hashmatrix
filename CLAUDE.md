@@ -22,6 +22,22 @@
 - [ ] 敏感原始资料未入库（已在 `.gitignore`）
 - [ ] 提交信息与分支/标签名同样不含上述敏感信息
 
+## 🧭 北极星：产品形态与多租户模式（开发者时刻谨记）
+
+本平台**双模交付**，所有设计与代码都须按此模式思考：
+
+| | 公网 SaaS | 私有化部署 |
+|--|--|--|
+| 运营 / 品牌 | 我们运营 · **我们公司统一品牌** | 客户环境 · **客户品牌（部署级）** |
+| 租户 = | 企业客户 | 客户的部门 |
+
+- **品牌是部署级**（部署期配置注入），**不按租户在运行期动态换肤**。
+- **多租户隔离（C 分层桥接）**：控制平面共享 + 数据平面按租户隔离。身份 = Keycloak **Organizations 单 realm**（org=租户，JWT 带 tenant 声明）；数据 = **schema/db-per-tenant**；计算 = **namespace-per-tenant**；由 `control-plane` 编排开通。
+
+**本仓视角（主仓）**：主仓**定义并治理**上述全局模型——多租户控制平面（`services/control-plane`）、公共依赖（`libs-java`，含 `starter-tenant` 租户上下文）、部署（`deploy`，per-tenant Helm release）。任何主仓变更先确认其在双模 / 多租户下成立。
+
+> 全局定义见 `docs/00-主仓初始化-spec.md` 与 `docs/architecture/05-多租户与控制平面.md`。
+
 ## 仓库定位
 
 云原生数据中台主仓（super-project）。以 Git Submodule 管理各分系统/服务，负责公共依赖与部署运维（Helm）封装。架构文档见 docs/architecture/ 目录。
