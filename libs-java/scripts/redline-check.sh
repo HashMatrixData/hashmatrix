@@ -13,9 +13,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"   # 默认扫描 libs-java/
 DENYLIST="$SCRIPT_DIR/.redline-denylist"
 
-EXCLUDES=(--exclude-dir=target --exclude-dir=.git --exclude-dir=node_modules)
-# 允许的占位/非敏感地址（回环、通配、文档示例域内出现的不计）
-ALLOW_IP_RE='^(0\.0\.0\.0|127\.0\.0\.1|255\.255\.255\.255)$'
+EXCLUDES=(--exclude-dir=target --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.gradle)
+# 允许的占位/非敏感地址（通用、非甲方可识别）：
+#   · 回环/通配/广播：0.0.0.0 / 127.0.0.1 / 255.255.255.255
+#   · RFC1918 私网「网段基址」：10.0.0.0 / 172.16.0.0 / 192.168.0.0（文档常引的 /8·/12·/16 基址；
+#     注意仅放行这三个基址本身——具体私网主机地址（非基址）仍会被拦下人工核对，避免漏掉真实内网主机）
+#   · RFC5737 文档专用 TEST-NET 段：192.0.2.x / 198.51.100.x / 203.0.113.x（专为示例设计，零风险）
+ALLOW_IP_RE='^(0\.0\.0\.0|127\.0\.0\.1|255\.255\.255\.255|10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|192\.0\.2\.[0-9]{1,3}|198\.51\.100\.[0-9]{1,3}|203\.0\.113\.[0-9]{1,3})$'
 
 fail=0
 
