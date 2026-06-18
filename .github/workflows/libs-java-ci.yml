@@ -1,0 +1,39 @@
+name: libs-java CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'libs-java/**'
+      - '.github/workflows/libs-java-ci.yml'
+  pull_request:
+    paths:
+      - 'libs-java/**'
+      - '.github/workflows/libs-java-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 红线校验（POM/源码无客户信息）
+        run: bash libs-java/scripts/redline-check.sh
+
+      # 注意：下面两步须同一 runner 顺序执行——step2 仅经 Maven 坐标解析 parent/bom/starter-*，
+      # 依赖 step1 install 进本地仓的产物。勿拆分到不同 job/runner。
+      - name: Build + test（parent/bom/starter-*）
+        run: mvn -B -ntp -f libs-java/pom.xml clean install
+
+      - name: 只 clone 子仓可构建（standalone 消费样例，仅经 Maven 坐标解析）
+        run: mvn -B -ntp -f libs-java/examples/sample-service/pom.xml clean verify

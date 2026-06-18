@@ -1,0 +1,51 @@
+name: libs-java Release
+
+# 发布触发：推送 libs-java-v* 标签（由 release-libs SKILL / scripts/release.sh 打出），
+# 或手动 workflow_dispatch（用于补发/重跑，幂等）。
+on:
+  push:
+    tags:
+      - 'libs-java-v*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要发布的 tag/commit（默认当前分支）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # 仅「创建 GitHub Release」步骤需要；勿扩用到其它步骤
+  packages: write   # mvn deploy 到 GitHub Packages 所需
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          server-id: github                 # 对应 distributionManagement 的 <id>github</id>
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: 红线校验（发布前硬门控）
+        run: bash libs-java/scripts/redline-check.sh
+
+      - name: Deploy 到 GitHub Packages（含 source/javadoc）
+        run: mvn -B -ntp -f libs-java/pom.xml -Prelease clean deploy
+        env:
+          MAVEN_USERNAME: ${{ github.actor }}
+          MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 创建 GitHub Release（自动生成说明）
+        if: startsWith(github.ref, 'refs/tags/libs-java-v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes

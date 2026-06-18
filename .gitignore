@@ -43,3 +43,6 @@ venv/
 secrets/
 *.pem
 *.key
+
+# 红线 denylist：真实代号/客户术语词表仅本地留存，不入库
+libs-java/scripts/.redline-denylist
