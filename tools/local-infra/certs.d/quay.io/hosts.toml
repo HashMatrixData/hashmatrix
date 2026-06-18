@@ -1,0 +1,8 @@
+# containerd 镜像重定向：quay.io（Strimzi/Kafka、cert-manager 等）
+server = "https://quay.io"
+
+[host."http://cache-quay:5000"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://quay.1ms.run"]
+  capabilities = ["pull", "resolve"]

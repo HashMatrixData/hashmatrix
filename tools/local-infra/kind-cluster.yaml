@@ -1,0 +1,29 @@
+# hashmatrix 本地测试集群（macOS / Docker Desktop）
+# 单节点；containerd 走 certs.d 镜像重定向（缓存优先 → 1ms 直连）。
+# __CERTS_D__ 由 up.sh 在运行时替换为本机 certs.d 绝对路径（保证跨机器可移植）。
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: hashmatrix-local
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+nodes:
+  - role: control-plane
+    # ingress-ready 标签 + 80/443 端口映射：APISIX / Ingress 类 E2E 可直接用
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraMounts:
+      - hostPath: __CERTS_D__
+        containerPath: /etc/containerd/certs.d
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP

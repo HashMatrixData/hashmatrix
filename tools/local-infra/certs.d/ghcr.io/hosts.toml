@@ -1,0 +1,9 @@
+# containerd 镜像重定向：ghcr.io（含自研 ghcr.io/hashmatrixdata/* 公开镜像）
+# 注意：私有镜像需在 cache-ghcr 上配置凭据，或改用 `kind load`（见 README）
+server = "https://ghcr.io"
+
+[host."http://cache-ghcr:5000"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://ghcr.1ms.run"]
+  capabilities = ["pull", "resolve"]

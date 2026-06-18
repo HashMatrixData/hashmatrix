@@ -1,0 +1,8 @@
+# containerd 镜像重定向：gcr.io
+server = "https://gcr.io"
+
+[host."http://cache-gcr:5000"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://gcr.1ms.run"]
+  capabilities = ["pull", "resolve"]

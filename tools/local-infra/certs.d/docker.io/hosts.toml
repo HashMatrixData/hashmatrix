@@ -1,0 +1,11 @@
+# containerd 镜像重定向：docker.io
+# 1) 先打宿主上的持久化 pull-through 缓存（命中=0 下载、可离线、跨 kind 重建复用）
+# 2) 未命中再走 1ms 直连（不经 MonoProxy / 不烧 VPN 流量）
+# 详见 ../../README.md
+server = "https://docker.io"
+
+[host."http://cache-docker:5000"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://docker.1ms.run"]
+  capabilities = ["pull", "resolve"]

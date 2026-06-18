@@ -1,0 +1,25 @@
+# 预热镜像清单（make warm 读取）。一行一个完整镜像引用（含 registry 与 tag）。
+# 规则：必须写明 registry 前缀；裸名视为 docker.io/library/*。
+#   docker.io        → cache-docker  (5001)
+#   registry.k8s.io  → cache-k8s     (5002)
+#   quay.io          → cache-quay    (5003)
+#   ghcr.io          → cache-ghcr    (5004)
+#   gcr.io           → cache-gcr     (5005)
+# 按各 chart 实际依赖增删；以下为通用基础镜像示例（脱敏、无任何甲方信息）。
+
+# --- 基础/探针 ---
+registry.k8s.io/pause:3.10
+docker.io/library/busybox:1.36
+
+# --- 数据底座（按需取消注释，tag 以实际 chart values 为准）---
+# docker.io/bitnami/postgresql:16
+# docker.io/bitnami/redis:7.4
+# docker.io/bitnami/minio:2024
+# quay.io/strimzi/operator:0.45.0
+# quay.io/strimzi/kafka:0.45.0-kafka-3.9.0
+
+# --- 网关 / Ingress（按需）---
+# registry.k8s.io/ingress-nginx/controller:v1.11.3
+
+# --- 自研服务（公开镜像；私有镜像建议改用 kind load）---
+# ghcr.io/hashmatrixdata/control-plane:dev
