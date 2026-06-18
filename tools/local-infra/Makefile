@@ -1,9 +1,9 @@
-# hashmatrix 本地测试基础设施（macOS / kind + 1ms 镜像缓存）
+# hashmatrix 本地测试基础设施（macOS / kind + DaoCloud 镜像缓存）
 # 详见 README.md。所有目标幂等。
 SHELL := /usr/bin/env bash
 HERE  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-.PHONY: help infra up down warm status nuke clean
+.PHONY: help infra up down warm fetch status nuke clean
 .DEFAULT_GOAL := help
 
 help: ## 显示帮助
@@ -16,8 +16,11 @@ infra: ## 仅拉起 5 个镜像缓存（不建集群）
 up: ## 拉起缓存 + kind 集群（幂等；常用）
 	@"$(HERE)up.sh"
 
-warm: ## 按 images.txt 预热镜像到缓存（可选，加速首次部署）
+warm: ## 按 images.txt 预热镜像到缓存（可选；daocloud 慢/抖动时可重跑，幂等只补未成功项）
 	@"$(HERE)warm.sh"
+
+fetch: ## 逃生口：daocloud 缺某镜像时直连原始 registry 拉取并载入集群（make fetch IMG="quay.io/...:tag"）
+	@"$(HERE)fetch-direct.sh" $(IMG)
 
 status: ## 查看缓存与集群状态
 	@"$(HERE)registries.sh" status

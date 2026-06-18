@@ -41,17 +41,21 @@ while IFS= read -r raw || [ -n "$raw" ]; do
 
   target="127.0.0.1:${port}/${repo}"
   log "预热 $ref  ⇢  $target"
-  pulled=0
+  pulled=0; errlog="$(mktemp)"
   for attempt in 1 2 3; do   # 容忍缓存冷启动 / 上游瞬时抖动
-    if docker pull "$target" >/dev/null 2>&1; then pulled=1; break; fi
-    sleep 2
+    if docker pull "$target" >/dev/null 2>"$errlog"; then pulled=1; break; fi
+    sleep 3
   done
   if [ "$pulled" = 1 ]; then
     docker rmi "$target" >/dev/null 2>&1 || true   # 仅删宿主标签，缓存卷保留
     ok=$((ok+1))
   else
-    warn "失败：${ref}（检查 tag 是否存在 / 上游 1ms 是否可达）"; fail=$((fail+1))
+    # 暴露上游真实报错（不要吞）：blob unknown=上游缺层 / 慢=限速 / 重定向=上游甩回原站
+    warn "失败：${ref} → $(tail -1 "$errlog" 2>/dev/null)"
+    warn "      （持续失败：核对 tag 是否存在；或 DaoCloud 缺该镜像 → 用 make fetch 逃生口）"
+    fail=$((fail+1))
   fi
+  rm -f "$errlog" 2>/dev/null || true
 done < "$LIST"
 
 log "预热完成：成功 $ok · 失败 $fail · 跳过 $skip"

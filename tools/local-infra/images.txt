@@ -1,25 +1,25 @@
 # 预热镜像清单（make warm 读取）。一行一个完整镜像引用（含 registry 与 tag）。
 # 规则：必须写明 registry 前缀；裸名视为 docker.io/library/*。
-#   docker.io        → cache-docker  (5001)
-#   registry.k8s.io  → cache-k8s     (5002)
-#   quay.io          → cache-quay    (5003)
-#   ghcr.io          → cache-ghcr    (5004)
-#   gcr.io           → cache-gcr     (5005)
+#   docker.io        → cache-docker  (5001) → docker.m.daocloud.io
+#   registry.k8s.io  → cache-k8s     (5002) → k8s.m.daocloud.io
+#   quay.io          → cache-quay    (5003) → quay.m.daocloud.io
+#   ghcr.io          → cache-ghcr    (5004) → ghcr.m.daocloud.io
+#   gcr.io           → cache-gcr     (5005) → gcr.m.daocloud.io
 # 按各 chart 实际依赖增删；以下为通用基础镜像示例（脱敏、无任何甲方信息）。
+#
+# 上游为 DaoCloud（m.daocloud.io）：对所有 registry 的 blob 都自己中转(200)，
+# 故经无代理缓存即可落盘、不走 VPN（详见 README「前因后果」）。免费站偶有限速/抖动，
+# warm 幂等：重跑只补未成功项；极个别缺失镜像用逃生口 `make fetch IMG="<完整镜像>"`。
 
-# --- 基础/探针 ---
-registry.k8s.io/pause:3.10
+# === 通用底座（每个 registry 至少一例，验证 5 个缓存全通）===
+docker.io/library/alpine:3.20
 docker.io/library/busybox:1.36
-
-# --- 数据底座（按需取消注释，tag 以实际 chart values 为准）---
-# docker.io/bitnami/postgresql:16
-# docker.io/bitnami/redis:7.4
-# docker.io/bitnami/minio:2024
-# quay.io/strimzi/operator:0.45.0
-# quay.io/strimzi/kafka:0.45.0-kafka-3.9.0
-
-# --- 网关 / Ingress（按需）---
-# registry.k8s.io/ingress-nginx/controller:v1.11.3
+docker.io/library/redis:7.4
+registry.k8s.io/pause:3.10
+registry.k8s.io/coredns/coredns:v1.11.1
+quay.io/prometheus/node-exporter:v1.8.2
+ghcr.io/cloudnative-pg/cloudnative-pg:1.24.1
+gcr.io/google-samples/hello-app:1.0
 
 # --- 自研服务（公开镜像；私有镜像建议改用 kind load）---
 # ghcr.io/hashmatrixdata/control-plane:dev

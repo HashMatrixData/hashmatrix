@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 管理 5 个持久化 pull-through 镜像缓存（registry:2 proxy → *.1ms.run）。
+# 管理 5 个持久化 pull-through 镜像缓存（registry:2 proxy → *.m.daocloud.io）。
 # 这些容器独立于 kind 生命周期：kind 反复 create/delete 不影响缓存卷。
 #
 # 用法：

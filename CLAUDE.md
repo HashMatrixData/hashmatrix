@@ -44,24 +44,28 @@
 
 技术栈与具体选型**待独立讨论后逐步丰富**，当前为初始脚手架。
 
-## 🧪 本地测试基础设施（macOS / kind + 1ms 镜像缓存）
+## 🧪 本地测试基础设施（macOS / kind + DaoCloud 镜像缓存）
 
 本地跑 Helm / E2E 的统一底座在 **`tools/local-infra/`**，一条命令 `make up`。
 **详细原理、用法、逐项排障见 [`tools/local-infra/README.md`](tools/local-infra/README.md)**——
 换机器、遇到拉取/代理/磁盘异常时，**先读该 README 的「前因后果」与「附录 B 排障」再动手**。
 
 **为什么是这套（前因后果，便于异常时定位）：**
-1. **公网镜像走 [1ms.run](https://1ms.run/) 加速**，每个上游 registry 一个子域名：
-   `docker.io→docker.1ms.run`、`registry.k8s.io→k8s.1ms.run`、`quay.io→quay.1ms.run`、
-   `ghcr.io→ghcr.1ms.run`、`gcr.io→gcr.1ms.run`。
-2. **本机用 MonoCloudProxy（127.0.0.1:8118/8119），走代理=计费流量**，故**镜像拉取一律绕开代理直连 1ms**：
-   - Docker Desktop 守护进程代理已在 **Bypass** 加 `.1ms.run` 等（一次性手动，见 README 附录 A）；
+1. **公网镜像走 [DaoCloud](https://github.com/DaoCloud/public-image-mirror) 加速**，每个上游 registry 一个子域名：
+   `docker.io→docker.m.daocloud.io`、`registry.k8s.io→k8s.m.daocloud.io`、`quay.io→quay.m.daocloud.io`、
+   `ghcr.io→ghcr.m.daocloud.io`、`gcr.io→gcr.m.daocloud.io`。
+2. **本机用 MonoCloudProxy（127.0.0.1:8118/8119），走代理=计费流量**，故**镜像拉取一律绕开代理直连 daocloud**：
+   - 缓存容器**不配代理**，访问国内 `*.m.daocloud.io` 本就直连；Docker Desktop 守护进程代理 **Bypass** 加 `.m.daocloud.io`（一次性手动，见 README 附录 A）；
    - `up.sh` 建 kind 时**剥离宿主 `HTTP(S)_PROXY`**——否则 kind 会把 `127.0.0.1:8118` 注入节点
      containerd，而节点内该地址不可达，导致**所有镜像拉取 proxyconnect 失败**（典型坑）。
 3. **kind 随时增删，镜像不能存在集群里**：用 **5 个独立于 kind 的 `registry:2` pull-through 缓存**
-   （各带持久卷）对应各 `*.1ms.run`；kind 的 containerd 经 `certs.d/<registry>/hosts.toml`
+   （各带持久卷）对应各 `*.m.daocloud.io`；kind 的 containerd 经 `certs.d/<registry>/hosts.toml`
    透明指向缓存（命中=0 下载、可离线）→ **一次下载，反复重建集群复用**。
-4. **缓存是优化、1ms 直连是兜底**：某缓存挂了自动落到 `*.1ms.run`，最坏退化为「每次从 1ms 重拉」而非失败。
+4. **缓存是优化、daocloud 直连是兜底**：某缓存挂了自动落到 `*.m.daocloud.io`，最坏退化为「每次重拉」而非失败。
 
-> 不同机器的代理/网络/磁盘配置不同，配置项（缓存清单、集群名、端口、Bypass 列表）集中在
+> ⭐ **为什么是 DaoCloud 而非 1ms**：缓存容器故意不配代理（不烧 VPN）。DaoCloud 对**所有** registry 的 blob
+> 都**自己中转(200)**，无代理缓存能落盘；而 1ms 对 k8s/quay/gcr/ghcr 的 blob 是 **307 重定向回国外原站 CDN**，
+> 无代理缓存够不到 → `404 blob unknown`（早期 `make warm` 7/8 失败的根因，付费也不改）。**换上游前先确认它自己中转 blob。**
+
+> 不同机器的代理/网络/磁盘配置不同，配置项（缓存清单、集群名、端口、Bypass 列表、上游）集中在
 > `tools/local-infra/_common.sh` 与 README，按需调整；调整后 `make nuke && make up`。

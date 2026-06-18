@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键拉起本地测试基础设施：5 个镜像缓存 + kind 集群（containerd 走 1ms 镜像缓存）。
+# 一键拉起本地测试基础设施：5 个镜像缓存 + kind 集群（containerd 走 DaoCloud 镜像缓存）。
 # 幂等：缓存/集群已存在则复用，不重复下载。
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
 require docker; require kind; require kubectl
@@ -18,8 +18,8 @@ else
   log "创建集群（certs.d=${CERTS_D}）"
   # 关键：剥离宿主代理环境再建集群。否则 kind 会把宿主的 HTTP(S)_PROXY=127.0.0.1:8118
   # 注入到节点 containerd —— 而节点内的 127.0.0.1 并非宿主，代理永不可达，
-  # 导致一切镜像拉取（含走 cache-*/1ms 的）proxyconnect 失败。
-  # 本设计下节点拉镜像全部经 cache-*（kind 网内直连）或 *.1ms.run（直连），无需任何代理。
+  # 导致一切镜像拉取（含走 cache-*/daocloud 的）proxyconnect 失败。
+  # 本设计下节点拉镜像全部经 cache-*（kind 网内直连）或 *.m.daocloud.io（直连），无需任何代理。
   env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u NO_PROXY -u no_proxy \
     kind create cluster --config "$tmp"
   rm -f "$tmp"

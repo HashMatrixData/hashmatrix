@@ -4,5 +4,5 @@ server = "https://quay.io"
 [host."http://cache-quay:5000"]
   capabilities = ["pull", "resolve"]
 
-[host."https://quay.1ms.run"]
+[host."https://quay.m.daocloud.io"]
   capabilities = ["pull", "resolve"]

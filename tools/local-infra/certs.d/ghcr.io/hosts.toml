@@ -5,5 +5,5 @@ server = "https://ghcr.io"
 [host."http://cache-ghcr:5000"]
   capabilities = ["pull", "resolve"]
 
-[host."https://ghcr.1ms.run"]
+[host."https://ghcr.m.daocloud.io"]
   capabilities = ["pull", "resolve"]

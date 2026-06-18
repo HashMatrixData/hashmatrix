@@ -4,5 +4,5 @@ server = "https://registry.k8s.io"
 [host."http://cache-k8s:5000"]
   capabilities = ["pull", "resolve"]
 
-[host."https://k8s.1ms.run"]
+[host."https://k8s.m.daocloud.io"]
   capabilities = ["pull", "resolve"]
