@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.hashmatrix</groupId>
+    <artifactId>hashmatrix-platform-parent</artifactId>
+    <version>0.1.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>hashmatrix-starter-test</artifactId>
+
+  <name>hashmatrix-starter-test</name>
+  <description>
+    统一测试栈：JUnit5 + AssertJ + Mockito + Testcontainers，外加脱敏 Mock 数据/fixtures 约定。
+    子仓以 &lt;scope&gt;test&lt;/scope&gt; 引用本 starter，即获完整测试依赖与公共 fixtures。
+  </description>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- 框架版本唯一来源：见 hashmatrix-bom -->
+      <dependency>
+        <groupId>io.hashmatrix</groupId>
+        <artifactId>hashmatrix-bom</artifactId>
+        <version>${project.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!--
+      compile 作用域：消费方以 test 作用域引入本 starter 后，下列依赖在消费方传递为 test 作用域，
+      形成「统一测试栈」。spring-boot-starter-test 已含 JUnit5 / AssertJ / Mockito / spring-test。
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+  </dependencies>
+</project>
