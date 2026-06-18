@@ -1,9 +1,10 @@
-# libs-ts · 公共 TS 依赖
+# libs-ts · 公共 TS 依赖（指针 · 已收敛）
 
-统一的前端公共能力（主仓职责），供 WebUI 等 TS 子模块复用：
+> **定位变更（结构决策）**：前端公共 TS 能力**不再在主仓单独发布**，统一收敛进**唯一前端仓 `webui` 的同仓 `packages/*`**（`ui` / `brand` / `theme` / `i18n` / `sdk`），由 webui 的 pnpm monorepo 内部共享。
 
-- 公共组件库 / 设计规范
-- 前端 SDK（对接网关、统一鉴权、API 客户端）
-- 工具与类型定义
+**为什么收敛**：webui 是当前**唯一的 TS 消费方**且已采用同仓双 app（`apps/console` + `apps/admin`）+ 共享 `packages/*` 结构；再在主仓维护一套对称的 npm 制品（对标 `libs-java`）会引入零复用收益的基建。遵循 YAGNI——**出现第二个 TS 消费方时再把对应 package 提升为主仓发布物**。
 
-> 当前为占位，前端框架（Next.js / Vue3）与组件方案待独立讨论。
+- 共享前端组件 / 白标 / 主题 / i18n / API SDK → 见 `services/webui` 的 `packages/*`（spec：`services/webui/docs/00-前端初始化-spec.md`）。
+- Java 侧公共依赖仍走主仓 `libs-java`（parent + BOM + `starter-*`，发布 GitHub Packages）。
+
+> 本目录保留为占位/指针，暂不承载源码与制品。
