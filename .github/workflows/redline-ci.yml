@@ -1,0 +1,36 @@
+name: redline CI
+
+# 仓库级「信息红线」硬门控（覆盖全仓，非按目录）。
+# 本仓为公开开源仓：任何 PR 都不得引入甲方可识别信息 / 真实主机 IP / 内网地址 / 凭据密钥。
+# 与各目录 CI 的分工：contracts/libs-java/deploy 各自做本域校验；本 workflow 是**跨目录兜底**，
+# 堵住「往未受 CI 覆盖的目录（tools/docs/根/新增目录）写敏感信息」的盲区。
+# 注意：不取 submodule——子仓内容由各自仓库 CI 负责。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  redline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # submodules 默认不拉取：主仓只扫主仓文件。
+
+      - name: 结构性红线（全仓 IP 字面量 + 本地 denylist）
+        # 复用 libs-java/scripts/redline-check.sh，传 "." 扫描整个工作区。
+        # 放行回环/通配/RFC1918 基址/RFC5737 文档段；具体内网主机 IP 仍会被拦下。
+        run: bash libs-java/scripts/redline-check.sh .
+
+      - name: Install gitleaks
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: 凭据/密钥扫描（gitleaks）
+        # --no-git 扫描当前工作区文件；--redact 命中不回显明文（红线：日志也不泄露）。
+        run: gitleaks detect --no-git --source . --redact --verbose
