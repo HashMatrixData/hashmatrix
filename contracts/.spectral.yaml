@@ -1,0 +1,4 @@
+# Spectral 规则集：OpenAPI + AsyncAPI lint（contracts-ci 静态门）
+extends:
+  - "spectral:oas"
+  - "spectral:asyncapi"

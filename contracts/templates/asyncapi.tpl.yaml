@@ -1,0 +1,27 @@
+asyncapi: 2.6.0
+info:
+  title: <domain> events
+  version: 0.1.0
+  description: |
+    <领域> 异步事件契约。规范见 contracts/CONVENTIONS.md。
+    envelope 带 schemaVersion，消费方按 tolerant reader 演进。
+defaultContentType: application/json
+channels:
+  hashmatrix.<domain>.<event>:
+    description: <事件说明>
+    subscribe:
+      message:
+        $ref: '#/components/messages/ExampleEvent'
+components:
+  messages:
+    ExampleEvent:
+      name: ExampleEvent
+      payload:
+        type: object
+        required: [eventId, schemaVersion, tenant, occurredAt]
+        properties:
+          eventId: { type: string, format: uuid }
+          schemaVersion: { type: integer, example: 1 }
+          tenant: { type: string, example: "acme" }      # 脱敏占位
+          occurredAt: { type: string, format: date-time }
+          data: { type: object }

@@ -1,15 +1,37 @@
 # contracts · 接口契约（ICD）
 
-各子模块间的接口契约统一在此维护，对应交付物中的「接口控制文件（ICD）」。
+跨子系统的**接口契约单一事实源**。多服务架构下，契约是各子系统**独立迭代而不互相破坏**的边界——**先改契约、再改实现**。
 
-- `openapi/` —— REST 接口（OpenAPI 3）
-- `proto/` —— gRPC / 内部 RPC（protobuf）
-- 约定：先改契约、再改实现；契约变更需评审。
+> 规范（文档格式 / 版本兼容 / 评审门 / 契约测试）见 [`CONVENTIONS.md`](./CONVENTIONS.md)；
+> 设计与决策见架构 [`06-契约治理`](../docs/architecture/06-契约治理.md)。
 
-## ICD 草案
+## 目录结构
 
-- [`tenant-context-headers-icd.md`](./tenant-context-headers-icd.md) —— 租户上下文头 **X-Tenant-***（gateway 注入 ↔ `starter-tenant` 消费，跨切面线契约，草案）。
-- [`governance-metadata-icd.md`](./governance-metadata-icd.md) —— 数据治理元数据**供数 API + 变更事件**（草案，待评审）。
+| 目录 | 契约类型 | 格式 | 静态门 |
+|--|--|--|--|
+| [`openapi/`](./openapi) | REST 接口（南北向 + 东西向） | OpenAPI 3.1 | Spectral lint · oasdiff 破坏性 |
+| [`asyncapi/`](./asyncapi) | 异步事件（Kafka 等） | AsyncAPI 2.6 + JSON Schema | Spectral lint · schema 向后兼容 |
+| [`proto/`](./proto) | gRPC / 内部 RPC | protobuf | buf lint · buf breaking |
+| [`icd/`](./icd) | 跨切面**线契约**（非单服务，如租户头/错误信封） | Markdown(+schema) | 评审 + 示例 |
+| `templates/` | 各类契约模板（新建契约从此拷贝） | — | — |
 
-> 当前为占位 + 草案，具体接口随各子模块设计逐步补充。
-> 契约目录结构 / 文档规范 / 版本兼容与契约测试架构：治理框架另行规范（讨论中）。
+## 契约索引（registry）
+
+| 契约 | 类型 | producer | status |
+|--|--|--|--|
+| [`icd/tenant-context-headers`](./icd/tenant-context-headers-icd.md) | ICD | gateway | draft |
+| [`icd/governance-metadata`](./icd/governance-metadata-icd.md) | ICD | governance | draft |
+
+> 新增契约务必在本表登记（id / 类型 / producer / status）。
+
+## 怎样新增 / 变更契约
+
+1. 从 `templates/` 拷贝对应模板，填 front-matter（`id/owner/status/version/producers/consumers`）。
+2. 放入对应类型目录；在上方 registry 登记。
+3. 开 PR——CI 跑静态门（lint + 破坏性检测）；契约变更需 **CODEOWNERS 评审**。
+4. 合并后，producer/consumer 各自仓 CI 据此验证实现（契约测试，见 CONVENTIONS §测试）。
+5. **破坏性变更**：升 MAJOR + 弃用期双跑 + 通知全部 consumers（见 CONVENTIONS §版本兼容）。
+
+## 🔴 红线
+
+契约为公开内容：不得含甲方信息、真实主机/IP、凭据；示例数据一律脱敏（`acme` / `tenant-demo` / `example.com`）。

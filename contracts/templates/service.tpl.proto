@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+// 包名带 major 版本；破坏性变更走 v2（见 contracts/CONVENTIONS.md §版本兼容）。
+package hashmatrix.example.v1;
+
+option java_multiple_files = true;
+option java_package = "io.hashmatrix.example.v1";
+
+// 示例服务。
+service ExampleService {
+  rpc GetExample(GetExampleRequest) returns (Example);
+}
+
+message GetExampleRequest {
+  string id = 1;
+  string tenant = 2;   // 脱敏占位：如 "acme"
+}
+
+message Example {
+  string id = 1;
+  string tenant = 2;
+}

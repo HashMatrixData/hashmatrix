@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: <service> API
+  version: 0.1.0
+  description: |
+    <一句话职责>。契约规范见 contracts/CONVENTIONS.md。
+  x-contract:                       # 契约元数据（front-matter 等价物）
+    id: openapi/<service>
+    owner: hashmatrix-<service>
+    status: draft
+    producers: [hashmatrix-<service>]
+    consumers: []
+servers:
+  - url: https://api.example.com    # 脱敏占位
+paths:
+  /examples/{id}:
+    get:
+      summary: 取一个示例资源
+      operationId: getExample
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Example' }
+components:
+  schemas:
+    Example:
+      type: object
+      required: [id, tenant]
+      properties:
+        id: { type: string, example: "ex-1" }
+        tenant: { type: string, example: "acme" }   # 脱敏占位

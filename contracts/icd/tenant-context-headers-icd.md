@@ -1,16 +1,18 @@
+---
+id: icd/tenant-context-headers
+owner: hashmatrix-gateway
+status: draft
+version: 1.0.0
+producers: [hashmatrix-gateway]
+consumers: [hashmatrix-governance, hashmatrix-security, hashmatrix-tools-bi, hashmatrix-privacy, hashmatrix-data-foundation, hashmatrix-platform-common, hashmatrix-control-plane]
+since: 2026-06-18
+---
+
 # ICD · 租户上下文头（X-Tenant-*）
 
 > 跨切面**线契约**：网关（边缘）与所有下游服务之间透传租户上下文的 HTTP 头约定。
-> 非代码依赖——产生方（APISIX Lua 插件）与消费方（Java `starter-tenant`）**各自实现、共守此约**。
-
-| 元数据 | 值 |
-|--|--|
-| id | `icd/tenant-context-headers` |
-| status | **draft（待评审）** |
-| version | `1.0.0-draft` |
-| producer | `services/gateway`（APISIX 插件 `tenant-context.lua`） |
-| consumers | 全部 Java 服务（`libs-java` `hashmatrix-starter-tenant`）；任何读租户头的上游 |
-| 关联 | 架构 05《多租户与控制平面》§5；主仓 #1（starter-tenant）；gateway#1（X-Tenant 注入） |
+> 非代码依赖——产生方（APISIX 插件 `tenant-context.lua`）与消费方（Java `starter-tenant`）**各自实现、共守此约**。
+> 关联：架构 05《多租户与控制平面》§5；主仓 #1（starter-tenant）；gateway#1（X-Tenant 注入）。
 
 ## 1. 目的与范围
 

@@ -1,0 +1,53 @@
+name: contracts CI
+
+# 契约静态门（schema-first 阶段一）：lint + 破坏性检测。
+# 无对应契约文件时各步骤优雅跳过（首次/空目录保持绿）。
+on:
+  push:
+    branches: [main]
+    paths: ['contracts/**', '.github/workflows/contracts-ci.yml']
+  pull_request:
+    paths: ['contracts/**', '.github/workflows/contracts-ci.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  static-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # buf breaking / oasdiff 需基线历史
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Spectral lint（OpenAPI / AsyncAPI）
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(contracts/openapi/**/*.yaml contracts/openapi/**/*.yml contracts/asyncapi/**/*.yaml contracts/asyncapi/**/*.yml)
+          if [ ${#files[@]} -eq 0 ]; then echo "无 OpenAPI/AsyncAPI 契约，跳过"; exit 0; fi
+          npx -y @stoplight/spectral-cli@latest lint --ruleset contracts/.spectral.yaml "${files[@]}"
+
+      - name: buf setup
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: buf lint + breaking（proto）
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          protos=(contracts/proto/**/*.proto)
+          if [ ${#protos[@]} -eq 0 ]; then echo "无 proto 契约，跳过"; exit 0; fi
+          buf lint contracts/proto
+          # 对基线分支检测破坏（PR 显式 major bump 时可在 buf.yaml 调整或忽略）
+          buf breaking contracts/proto --against ".git#branch=main,subdir=contracts/proto" || {
+            echo "::warning::proto 破坏性变更——确认是否已升 package 版本并走弃用流程"; exit 1; }
+
+      # TODO（openapi 落地后启用）：REST 破坏性检测 oasdiff
+      #   对每个改动的 contracts/openapi/*.yaml 与基线版本做 `oasdiff breaking`，破坏即 fail（除非 PR 显式 major bump）。
+      #   参考 contracts/CONVENTIONS.md §契约测试。
