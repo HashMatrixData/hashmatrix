@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.hashmatrix</groupId>
+  <artifactId>hashmatrix-platform-parent</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+
+  <name>hashmatrix-platform-parent</name>
+  <description>
+    平台公共 parent：统一 Java 版本、编码、插件管理、编译/质量门与发布配置（GitHub Packages）。
+    各 Java 子仓以 &lt;parent&gt; 引用本制品（配合 import hashmatrix-bom），不依赖 submodule 路径。
+  </description>
+  <url>https://github.com/HashMatrixData/hashmatrix</url>
+
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+    </license>
+  </licenses>
+
+  <!--
+    聚合器（reactor）。模块拓扑：bom → starter-* 均以本 parent 为 <parent>。
+    版本由 release-libs 统一递增（mvn versions:set），保持全模块同版本。
+
+    examples/sample-service 刻意「不」纳入 reactor：它是下游消费者，仅经 Maven 坐标
+    （<parent> + import BOM，relativePath 留空）引用本仓制品。验证只 clone 子仓可构建的姿势：
+      mvn -f libs-java/pom.xml clean install        # 先把 parent/bom/starter-* 装进本地仓
+      mvn -f libs-java/examples/sample-service/pom.xml clean package   # 仅从仓库解析，零路径依赖
+  -->
+  <modules>
+    <module>bom</module>
+    <module>starter-test</module>
+    <module>starter-web</module>
+    <module>starter-tenant</module>
+  </modules>
+
+  <properties>
+    <!-- 统一 Java 版本（信创 BiSheng / 标准 OpenJDK 均覆盖；后续经 BOM 升级一行切换） -->
+    <java.version>17</java.version>
+    <maven.compiler.release>${java.version}</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- 构建插件版本（与框架版本分离；框架/库版本统一在 hashmatrix-bom） -->
+    <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
+    <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+    <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+    <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+    <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
+
+    <!-- 最低工具链门槛（质量门，由 enforcer 强制） -->
+    <minimum.maven.version>3.8.0</minimum.maven.version>
+
+    <!--
+      信创/内网私服镜像地址：占位（脱敏）。真实地址在交付期经 settings.xml / CI Secret 注入，不入库。
+      见 libs-java/README.md「内网/信创交付：制品镜像同步」。
+    -->
+    <hashmatrix.mirror.url>https://nexus.example.internal/repository/maven-public</hashmatrix.mirror.url>
+  </properties>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven-compiler-plugin.version}</version>
+          <configuration>
+            <release>${maven.compiler.release}</release>
+            <parameters>true</parameters>
+            <compilerArgs>
+              <arg>-Xlint:all,-processing</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${maven-surefire-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>${maven-failsafe-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>${maven-source-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>${maven-javadoc-plugin.version}</version>
+          <configuration>
+            <doclint>none</doclint>
+            <quiet>true</quiet>
+          </configuration>
+        </plugin>
+        <!--
+          代码风格门（opt-in）：在 pluginManagement 中预置，子仓/CI 可绑定 spotless:check。
+          默认不绑定执行，避免对历史代码一刀切失败；统一启用时机另议。
+        -->
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless-maven-plugin.version}</version>
+          <configuration>
+            <java>
+              <googleJavaFormat/>
+              <removeUnusedImports/>
+            </java>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <!-- 质量门：强制最低 Maven/Java 版本，禁止依赖版本冲突显式声明回退 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-build-baseline</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>${minimum.maven.version}</version>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[${java.version},)</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- 默认：标准开源（Maven Central）。平台自身选型保持开源（见架构 03）。 -->
+    <profile>
+      <id>oss</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+    </profile>
+
+    <!--
+      信创/内网交付：构建源与发布目标切到内网私服（地址经 ${hashmatrix.mirror.url} 注入）。
+      仅切镜像/参数，不改应用逻辑（呼应架构 04 §3 信创双轨）。真实地址不入库。
+    -->
+    <profile>
+      <id>xinchuang</id>
+      <repositories>
+        <repository>
+          <id>internal-mirror</id>
+          <url>${hashmatrix.mirror.url}</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+      </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>internal-mirror</id>
+          <url>${hashmatrix.mirror.url}</url>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+
+    <!--
+      release：仅发布时生成 source/javadoc 制品并附着；常规 verify 不触发，保持 CI 快速。
+      由 release-libs SKILL / release workflow 以 -Prelease 激活。
+    -->
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals><goal>jar-no-fork</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals><goal>jar</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+  <!-- 制品仓 = GitHub Packages；内网交付经 scripts/mirror-to-nexus.sh 镜像到私服 -->
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages · HashMatrixData/hashmatrix</name>
+      <url>https://maven.pkg.github.com/HashMatrixData/hashmatrix</url>
+    </repository>
+    <snapshotRepository>
+      <id>github</id>
+      <name>GitHub Packages · HashMatrixData/hashmatrix</name>
+      <url>https://maven.pkg.github.com/HashMatrixData/hashmatrix</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <scm>
+    <url>https://github.com/HashMatrixData/hashmatrix</url>
+    <connection>scm:git:https://github.com/HashMatrixData/hashmatrix.git</connection>
+    <developerConnection>scm:git:git@github.com:HashMatrixData/hashmatrix.git</developerConnection>
+  </scm>
+</project>

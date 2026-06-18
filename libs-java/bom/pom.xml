@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.hashmatrix</groupId>
+    <artifactId>hashmatrix-platform-parent</artifactId>
+    <version>0.1.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>hashmatrix-bom</artifactId>
+  <packaging>pom</packaging>
+
+  <name>hashmatrix-bom</name>
+  <description>
+    平台依赖 BOM：dependencyManagement 钉死开发框架版本（Spring Boot 家族 + 测试栈 + 公共 starter）。
+    各子仓「开发框架版本」的唯一来源——以 &lt;scope&gt;import&lt;/scope&gt; 引入，升级 = 改一行版本号。
+  </description>
+
+  <properties>
+    <!-- ===== 框架/库版本钉死（唯一来源） ===== -->
+    <spring-boot.version>3.3.5</spring-boot.version>
+    <testcontainers.version>1.20.4</testcontainers.version>
+    <!--
+      junit-jupiter / mockito / assertj-core / spring-* 版本由 spring-boot-dependencies 统一管理，
+      不在此重复钉死，避免与 Spring Boot 平台版本漂移。
+    -->
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Spring Boot 家族：开发框架版本唯一来源 -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- 统一测试栈：Testcontainers（JUnit5/AssertJ/Mockito 随 spring-boot-dependencies） -->
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- 平台公共 starter：随 BOM 同版本发布；子仓引用免写版本 -->
+      <dependency>
+        <groupId>io.hashmatrix</groupId>
+        <artifactId>hashmatrix-starter-tenant</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix</groupId>
+        <artifactId>hashmatrix-starter-web</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix</groupId>
+        <artifactId>hashmatrix-starter-test</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
