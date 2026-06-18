@@ -11,12 +11,12 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>hashmatrix-starter-tenant</artifactId>
+  <artifactId>hashmatrix-starter-audit</artifactId>
 
-  <name>hashmatrix-starter-tenant</name>
+  <name>hashmatrix-starter-audit</name>
   <description>
-    多租户上下文 starter：从网关注入的 X-Tenant-* 头解析 TenantContext，经 ThreadLocal 下推数据访问层。
-    呼应架构 05 §5 租户上下文透传；各 Java 服务依赖即获多租户上下文能力，免各仓重复实现。
+    审计 starter：统一审计事件模型 AuditEvent 与 AuditRecorder（默认 slf4j 结构化输出）。
+    审计事件自动加盖当前租户（取自 starter-tenant 的 TenantContextHolder），各服务依赖即获一致的审计语义。
   </description>
 
   <dependencyManagement>
@@ -36,28 +36,22 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>
     </dependency>
+    <!-- 审计事件加盖租户：复用 starter-tenant 的 TenantContextHolder -->
     <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-web</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>jakarta.servlet</groupId>
-      <artifactId>jakarta.servlet-api</artifactId>
-      <scope>provided</scope>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-tenant</artifactId>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
 
-    <!-- 生成 spring-configuration-metadata（IDE 配置提示）；仅注解处理期使用 -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
 
-    <!-- 测试栈：dogfood 平台统一 starter-test -->
     <dependency>
       <groupId>io.hashmatrix</groupId>
       <artifactId>hashmatrix-starter-test</artifactId>

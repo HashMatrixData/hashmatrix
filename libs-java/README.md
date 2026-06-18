@@ -8,10 +8,14 @@
 | bom | `io.hashmatrix:hashmatrix-bom` (pom) | `dependencyManagement` **钉死开发框架版本**（Spring Boot 家族 + 测试栈 + starter）——版本**唯一来源** |
 | starter-tenant | `io.hashmatrix:hashmatrix-starter-tenant` | 多租户上下文 `TenantContext`（X-Tenant-* 头 → ThreadLocal，架构 05 §5） |
 | starter-web | `io.hashmatrix:hashmatrix-starter-web` | Web 基座：统一返回 `ApiResponse` + 全局异常处理 |
+| starter-audit | `io.hashmatrix:hashmatrix-starter-audit` | 审计基座：`AuditEvent` + `AuditRecorder`（默认 slf4j），自动加盖租户，可覆盖 |
+| starter-observability | `io.hashmatrix:hashmatrix-starter-observability` | 可观测：actuator 探针 + `/actuator/prometheus` 指标 + 公共标签（OTel 链路走部署期 agent） |
+| starter-logging | `io.hashmatrix:hashmatrix-starter-logging` | 日志关联：请求级 MDC 注入 `tenantId`/`requestId`，关联审计与链路 |
+| starter-security | `io.hashmatrix:hashmatrix-starter-security` | 应用侧鉴权：信任网关下发身份/角色（应用无感），构建 SecurityContext + 方法级授权 |
 | starter-test | `io.hashmatrix:hashmatrix-starter-test` | 统一测试栈（JUnit5 + AssertJ + Mockito + Testcontainers）+ 脱敏 fixtures |
 
 > **基线**：Java 17 · Spring Boot 3.3.5（经 BOM 钉死，升级=改 BOM 一行）。
-> 路线图（后续 starter）：日志 / 审计 / 鉴权——新增即纳入 BOM 管理，沿用本目录模式。
+> 公共能力（spec §3「日志/审计/鉴权/Web 基座 + tenant」）已补齐；新增 starter 沿用本目录模式并纳入 BOM。
 > 当前版本：见各 `pom.xml`（统一版本，由 [release-libs](#发布) 递增）。
 
 ## 目录
@@ -22,6 +26,10 @@ libs-java/
 ├── bom/                    # hashmatrix-bom
 ├── starter-tenant/         # TenantContext / Filter / AutoConfiguration
 ├── starter-web/            # ApiResponse / GlobalExceptionHandler
+├── starter-audit/          # AuditEvent / AuditRecorder（租户自动加盖）
+├── starter-observability/  # actuator + Prometheus + 公共指标标签
+├── starter-logging/        # MdcContextFilter（tenantId / requestId 注入 MDC）
+├── starter-security/       # GatewayPreAuthFilter + 默认过滤链 + 方法级授权
 ├── starter-test/           # 测试栈 + fixtures（MockTenants / MockData）
 ├── examples/sample-service/# 子仓接入样例（不入 reactor，仅经坐标消费）
 └── scripts/                # release.sh / mirror-to-nexus.sh / redline-check.sh
@@ -35,7 +43,7 @@ libs-java/
 <parent>
   <groupId>io.hashmatrix</groupId>
   <artifactId>hashmatrix-platform-parent</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <relativePath/>           <!-- 留空：从制品仓解析，不依赖路径 -->
 </parent>
 
@@ -44,7 +52,7 @@ libs-java/
     <dependency>
       <groupId>io.hashmatrix</groupId>
       <artifactId>hashmatrix-bom</artifactId>
-      <version>0.1.0</version>
+      <version>0.2.0</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -74,6 +82,10 @@ libs-java/
 
 - **starter-tenant**：网关注入 `X-Tenant-Id`/`X-Tenant-Org` → `TenantContextFilter` 绑定 `TenantContextHolder`。业务/数据访问层 `TenantContextHolder.requireTenantId()` 取当前租户做 schema/catalog 路由。跨线程用 `TenantContextHolder.callWith(ctx, ...)` 显式传播。配置前缀 `hashmatrix.tenant.*`（`header`/`required`/`filter-order`/`enabled`）。
 - **starter-web**：控制器返回 `ApiResponse.ok(data)`；抛 `BusinessException(status, code, msg)`，由 `GlobalExceptionHandler` 统一转 `ApiResponse`（未知异常→500 且不泄露细节）。开关 `hashmatrix.web.exception-handler.enabled`。
+- **starter-audit**：注入 `AuditRecorder`，`auditRecorder.record(AuditEvent.of(actor, action, target, outcome, detail))` 即落审计；事件自动加盖当前租户。自定义 Bean（如投 Kafka 审计 topic）可覆盖。配置前缀 `hashmatrix.audit.*`。
+- **starter-observability**：依赖即获 `/actuator/health` 与 `/actuator/prometheus`；`hashmatrix.observability.service-name` / `common-tags.*` 注入公共指标标签。链路（OTel）经部署期 Java agent，不绑代码。
+- **starter-logging**：请求级 `MdcContextFilter` 把 `tenantId`/`requestId` 写入 MDC（日志模板用 `%X{tenantId}` / `%X{requestId}` 引用），与审计/链路三方关联；沿用入站 `X-Request-Id`，缺失则生成回写。配置前缀 `hashmatrix.logging.*`。
+- **starter-security**：网关已认证、应用无感；`GatewayPreAuthFilter` 据 `X-User`/`X-Roles` 建 SecurityContext，默认无状态过滤链放行探针、其余需认证，并开启 `@PreAuthorize` 方法级授权。配置前缀 `hashmatrix.security.*`。
 - **starter-test**：以 `test` 作用域引入即获完整测试栈；租户取 `MockTenants`，样例数据取 `MockData`（确定性、脱敏：`@example.com` / `*.example.internal`）。新增 fixtures 须守红线。
 
 ## 验证「只 clone 子仓可构建」

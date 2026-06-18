@@ -1,5 +1,9 @@
 # libs-java Changelog
 
+## libs-java-v0.2.0 — 2026-06-18
+
+- TODO: 本次变更摘要（不含客户/凭据信息）。
+
 ## libs-java-v0.1.0 — 2026-06-18
 
 首个公共依赖基线（Java 17 · Spring Boot 3.3.5），对应 GitHub Issue #1。

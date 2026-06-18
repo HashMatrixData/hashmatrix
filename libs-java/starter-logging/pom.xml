@@ -11,12 +11,12 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>hashmatrix-starter-tenant</artifactId>
+  <artifactId>hashmatrix-starter-logging</artifactId>
 
-  <name>hashmatrix-starter-tenant</name>
+  <name>hashmatrix-starter-logging</name>
   <description>
-    多租户上下文 starter：从网关注入的 X-Tenant-* 头解析 TenantContext，经 ThreadLocal 下推数据访问层。
-    呼应架构 05 §5 租户上下文透传；各 Java 服务依赖即获多租户上下文能力，免各仓重复实现。
+    日志关联 starter：请求级 MDC 注入——把当前租户（tenantId，取自 starter-tenant）与请求标识
+    （requestId，沿用/生成 X-Request-Id）打进 MDC，使日志可按租户过滤、并与审计/链路关联。
   </description>
 
   <dependencyManagement>
@@ -45,19 +45,22 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <scope>provided</scope>
     </dependency>
+    <!-- 租户从 TenantContextHolder 取，打进 MDC -->
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-tenant</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
 
-    <!-- 生成 spring-configuration-metadata（IDE 配置提示）；仅注解处理期使用 -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
 
-    <!-- 测试栈：dogfood 平台统一 starter-test -->
     <dependency>
       <groupId>io.hashmatrix</groupId>
       <artifactId>hashmatrix-starter-test</artifactId>

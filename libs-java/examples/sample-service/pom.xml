@@ -12,13 +12,13 @@
   <parent>
     <groupId>io.hashmatrix</groupId>
     <artifactId>hashmatrix-platform-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <relativePath/>
   </parent>
 
   <groupId>io.hashmatrix.examples</groupId>
   <artifactId>sample-service</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 
   <name>sample-service</name>
   <description>libs-java 接入样例：演示 &lt;parent&gt; + import BOM + starter-tenant/web 的最小子仓。</description>
@@ -34,7 +34,7 @@
       <dependency>
         <groupId>io.hashmatrix</groupId>
         <artifactId>hashmatrix-bom</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>

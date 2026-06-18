@@ -1,0 +1,2 @@
+io.hashmatrix.starter.security.SecurityAutoConfiguration
+io.hashmatrix.starter.security.SecurityFilterChainConfiguration

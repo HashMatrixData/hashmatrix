@@ -6,7 +6,7 @@
 
   <groupId>io.hashmatrix</groupId>
   <artifactId>hashmatrix-platform-parent</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <packaging>pom</packaging>
 
   <name>hashmatrix-platform-parent</name>
@@ -37,6 +37,10 @@
     <module>starter-test</module>
     <module>starter-web</module>
     <module>starter-tenant</module>
+    <module>starter-audit</module>
+    <module>starter-observability</module>
+    <module>starter-logging</module>
+    <module>starter-security</module>
   </modules>
 
   <properties>
