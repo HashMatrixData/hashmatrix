@@ -40,7 +40,7 @@ services:
     image:
       repository: ghcr.io/hashmatrixdata/governance
       tag: "0.1.0"
-    port: 8080
+    port: 8082          # 应用端口（对齐 M1 §3 基线 / gateway#4；管理 9082 独立 management.server.port）
     replicas: 1
     resources:
       requests:
