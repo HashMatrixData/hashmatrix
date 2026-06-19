@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Control Plane · Tenant Lifecycle API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     控制平面（`services/control-plane`）对外的**租户注册 / 审批 / 开通状态 / 生命周期 / 配额查询**北向 REST 契约。
 
@@ -42,6 +42,8 @@ tags:
     description: 生命周期（停用 / 恢复 / 注销）
   - name: quota
     description: 配额查询
+  - name: me
+    description: 当前登录用户自助视图（跨租户 membership）
 paths:
   /v1/tenants:
     post:
@@ -265,6 +267,26 @@ paths:
                 $ref: "#/components/schemas/QuotaStatus"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/me/tenants:
+    get:
+      tags: [me]
+      summary: 列出当前用户的租户 membership
+      description: |
+        返回**当前登录用户**（JWT 主体 `sub`）的租户成员资格列表，供 webui 渲染**租户切换器**。
+        跨租户自助视图：由 control-plane 据已认证主体解析，**不要求**调用方携带 `X-Tenant-*`
+        （用户可能尚未选定活动租户，或正要切换；对照 `icd/tenant-context-headers` §3.4）。
+        响应恒为**数组**（D1：单 User + 多 Org Membership；M1 实现先返回 1 个，schema 一律按数组为多租户预留）；
+        切换租户见 D2（以 `tenantKey` 重新换 token，`X-Tenant-Id` 始终唯一）。
+      operationId: listMyTenants
+      responses:
+        "200":
+          description: 当前用户的租户 membership 列表（可为空数组）
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MembershipView"
 components:
   securitySchemes:
     bearerAuth:
@@ -371,6 +393,38 @@ components:
         total:
           type: integer
           example: 1
+    MembershipView:
+      type: object
+      description: |
+        当前登录用户在某租户的**成员资格视图**（D1：单 User + 多 Org Membership + 每租户角色）。
+        由 control-plane 据 JWT 主体（`sub`）跨租户解析，供 webui 渲染租户切换器；
+        切换到该租户走 D2（以 `tenantKey` 向 Keycloak 重新换取 org-scoped token，`X-Tenant-Id` 始终唯一）。
+      required: [tenantId, tenantKey, displayName, status]
+      properties:
+        tenantId:
+          type: string
+          description: 稳定租户标识（与 `Tenant.tenantId` / `X-Tenant-Id` 路由键同源；数据·计算隔离的权威键）。
+          example: tenant-demo
+        tenantKey:
+          type: string
+          description: |
+            Keycloak Organization 别名键（= `OrganizationRef.orgAlias`）；切换租户时用于申请该 org 的 org-scoped token。
+            部署内稳定；demo 下与 `tenantId` 取值相同，生产可不同（`tenantId` 映射 org UUID 时）。
+          example: tenant-demo
+        displayName:
+          type: string
+          description: 租户显示名（与 `Tenant.displayName` 一致）。
+          example: Demo Tenant
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+        roles:
+          type: array
+          description: |
+            当前用户在该租户的角色（D1「每租户角色」）。可选——M1 实现可暂不返回；
+            消费方 tolerant reader，未返回时不得报错。
+          items:
+            type: string
+          example: [tenant-admin]
     OrganizationRef:
       type: object
       description: Keycloak Organization 引用（开通时建立；身份隔离 = 单 realm，org = 租户）。

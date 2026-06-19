@@ -6,7 +6,7 @@ contracts:
     type: icd
     path: icd/tenant-context-headers-icd.md
     status: draft
-    version: 1.0.0
+    version: 1.1.0          # §3.4 多 org→单活动租户放宽（MINOR），与契约文件 front-matter 对齐
     producers: [hashmatrix-gateway]
     consumers:
       - hashmatrix-governance
@@ -49,8 +49,8 @@ contracts:
   - id: openapi/control-plane-v1
     type: openapi
     path: openapi/control-plane-v1.yaml
-    status: draft          # 控制平面北向：租户注册/审批/开通状态/生命周期/配额查询
-    version: 1.0.0
+    status: draft          # 控制平面北向：租户注册/审批/开通状态/生命周期/配额查询 + 当前用户 membership（/me/tenants）
+    version: 1.1.0          # +GET /v1/me/tenants（加法兼容 MINOR）
     producers: [hashmatrix-control-plane]
     consumers: [hashmatrix-webui]
 
