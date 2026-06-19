@@ -2,7 +2,7 @@
 id: icd/tenant-context-headers
 owner: hashmatrix-gateway
 status: draft
-version: 1.1.0
+version: 1.2.0
 producers: [hashmatrix-gateway]
 consumers: [hashmatrix-governance, hashmatrix-security, hashmatrix-tools-bi, hashmatrix-privacy, hashmatrix-data-foundation, hashmatrix-platform-common, hashmatrix-control-plane]
 since: 2026-06-18
@@ -39,6 +39,8 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 > 多租户模型：`org = 租户`（公网 SaaS=企业 / 私有化=部门），见架构 05 §1。占位一律脱敏（`acme` / `tenant-demo`）。
 >
 > **claim 结构基准**（以 Keycloak Organizations 映射为准）：`organization` 承载用户**全部 membership**（单项或多项）；`active_organization` 标识 org-scoped token **选定的活动 org**。`X-Tenant-Id` 取活动 org（按 §3.4 优先级），`X-Tenant-Org` 取同一活动 org 的原始标识/别名。
+>
+> **必需性的范围**：上表「必需=是」针对**租户隔离路由**（`require_tenant=true`）。**管理平面路由**（`require_tenant=false`，见 §3.6）有意不带租户上下文，`X-Tenant-*` 整组可缺失——消费方须容忍（§4.5）。
 
 ## 3. 产生方契约（gateway）
 
@@ -54,6 +56,7 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 
    > 即：被拒绝的是「**无活动声明的多 membership**」这一**不可判定态**，而非「凡多 org 即拒绝」——已选定/切换 org 的多 membership 用户可正常解析到其活动租户。
 5. 同时把租户暴露为 `$tenant_id` 变量（供 `limit-count` 等按租户限流）——属网关内部用法，**不在本头契约范围**。
+6. **管理平面（`require_tenant=false`）**：管理/superadmin 平面路由可置 `require_tenant=false`。此时——`openid-connect` **仍验签**（无/坏 token 仍 `401`）、入口清洗（§3.1）**仍执行**；当**解析不到活动租户**（如 superadmin 不绑 org、token 无 `organization` 声明）时**放行且不注入任何 `X-Tenant-*`**（而非 §3.3 的 fail-closed）。语义为「**OIDC 已校验、但无租户上下文**」，专用于无租户的管理面；此模式下**绝不错注租户**。租户隔离资源仍只挂 `require_tenant=true` 路由。（实现见 gateway `apisix/apisix.yaml` admin 路由 + `plugins/tenant-context.lua`，gateway#6。）
 
 ## 4. 消费方契约（服务侧）
 
@@ -61,6 +64,7 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 2. `starter-tenant` 默认 `required=false`：**信任边缘已强制**（gateway `require_tenant=true`）。前提是**服务仅在网关之后可达**——见 §5。
 3. `X-Tenant-Subject` 为**预留**头；消费方未用时必须**容忍其存在**（tolerant reader），不得因新增头报错。
 4. 取不到租户上下文却访问租户隔离资源 → 编程/配置错误（`TenantContextHolder.require()` 抛错），不得静默放行。
+5. **容忍管理平面无租户头**：`require_tenant=false` 路由（管理/superadmin 平面，§3.6）下 `X-Tenant-*` **整组可缺失**——这些路由无租户上下文，消费方**不得假设每请求必带 `X-Tenant-Id`**。反之，**租户隔离资源不得挂在此类路由后**（隔离资源只走 `require_tenant=true`）。当前管理面消费方主要为 control-plane。
 
 ## 5. 信任与安全模型
 
@@ -78,11 +82,13 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 
 - 本 ICD 走 semver。**加法兼容**（新增可选头、放宽来源）允许在 MINOR；**改名 / 改语义 / 收紧必需性**为破坏性，需 MAJOR + 弃用期（产生方双跑新旧头一个窗口）+ 通知全部 consumers。
 - 默认 consumer 为 **tolerant reader**：忽略未知头、不依赖头顺序。
-- **本次修订（v1.0.0 → v1.1.0 · MINOR · 加法放宽，非破坏）**：§3.4 由「多 org 一律 `403`」放宽为「解析到单活动租户、结构预留多 membership」。对消费方契约（读取唯一 `X-Tenant-Id`）**无破坏**——仅放宽产生方的拒绝面，原被边缘拦截的多 membership 请求现可携唯一租户头到达上游；故**不设弃用期 / 双跑窗口**，仅作**信息性通知**全部 consumers（到量可能上升，行为无需改，但请各消费方自检是否残留「持头用户必为单 org」的隐含假设——§6 已禁止）：governance / security / tools-bi / privacy / data-foundation / platform-common / control-plane。
+- **v1.0.0 → v1.1.0（MINOR · 加法放宽，非破坏）**：§3.4 由「多 org 一律 `403`」放宽为「解析到单活动租户、结构预留多 membership」。对消费方契约（读取唯一 `X-Tenant-Id`）**无破坏**——仅放宽产生方的拒绝面，原被边缘拦截的多 membership 请求现可携唯一租户头到达上游；故**不设弃用期 / 双跑窗口**，仅作**信息性通知**全部 consumers（到量可能上升，行为无需改，但请各消费方自检是否残留「持头用户必为单 org」的隐含假设——§6 已禁止）：governance / security / tools-bi / privacy / data-foundation / platform-common / control-plane。
+- **v1.1.0 → v1.2.0（MINOR · 加法，非破坏）**：补记**管理平面 `require_tenant=false`** 产生方模式（§3.6）及对应消费方容忍义务（§4.5）。纯加法——既有租户隔离路由（`require_tenant=true`）行为、与消费方读取唯一 `X-Tenant-Id` 的契约**均无变化**；仅显式化「管理面无租户上下文、`X-Tenant-*` 可缺失」这一既有实现（gateway#6），消除契约与实现的留痕缺口。不设弃用期；信息性通知**管理面消费方**（当前主要 control-plane）：admin 平面路由不带租户头，按 tolerant reader 处理。
 
 ## 8. 一致性校验要点（契约测试）
 
 - **头名一致性**：gateway `tenant-context.lua` 的 `id_header`/`org_header`/`subject_header` 默认值，必须等于 `starter-tenant` `TenantProperties` 的 `header`/`orgHeader`（及未来 subject）默认值。当前均为 `X-Tenant-Id` / `X-Tenant-Org` ✅。
 - **行为契约**：缺身份 → 边缘 401/403（非放行到上游）；客户端伪造头被清洗。建议产生方侧 e2e（APISIX 起栈 + 伪造头）+ 消费方侧 `TenantContextFilter` 单测共同覆盖。
+- **管理平面（`require_tenant=false`，§3.6）**：无/坏 token 仍 `401`（openid-connect 不放松）；伪造 `X-Tenant-*` 仍被清洗；无租户即**放行且不注入** `X-Tenant-*`。产生方侧已覆盖（gateway `scripts/smoke_test.py` admin 用例 + `scripts/cluster_e2e.py` fail-closed 档）。
 - **多 membership → 单活动租户**（对应 §3.4 三分支，产生方侧契约测试须覆盖）：(a) org-scoped token 带 `active_organization` 的**多 membership** 用户 → 注入对应的唯一 `X-Tenant-Id`；(b) **单一 membership** 无活动声明 → 注入该 org；(c) **多 membership 且无活动声明** → 边缘 `403`（不静默挑选、注入结果不依赖 claim 遍历顺序）。
 - 纳入平台契约测试框架后，本 ICD 升 `stable`。

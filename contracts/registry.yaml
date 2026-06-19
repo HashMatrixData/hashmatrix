@@ -6,7 +6,7 @@ contracts:
     type: icd
     path: icd/tenant-context-headers-icd.md
     status: draft
-    version: 1.1.0          # §3.4 多 org→单活动租户放宽（MINOR），与契约文件 front-matter 对齐
+    version: 1.2.0          # +§3.6 管理平面 require_tenant=false 留痕（MINOR 加法），与契约文件 front-matter 对齐
     producers: [hashmatrix-gateway]
     consumers:
       - hashmatrix-governance
