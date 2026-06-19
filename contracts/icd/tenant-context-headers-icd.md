@@ -2,7 +2,7 @@
 id: icd/tenant-context-headers
 owner: hashmatrix-gateway
 status: draft
-version: 1.0.0
+version: 1.1.0
 producers: [hashmatrix-gateway]
 consumers: [hashmatrix-governance, hashmatrix-security, hashmatrix-tools-bi, hashmatrix-privacy, hashmatrix-data-foundation, hashmatrix-platform-common, hashmatrix-control-plane]
 since: 2026-06-18
@@ -24,8 +24,8 @@ since: 2026-06-18
 
 | 头 | 语义 | 来源（Keycloak claim） | 必需 | 产生方 | 消费方 |
 |--|--|--|--|--|--|
-| `X-Tenant-Id` | **稳定租户标识**——数据/计算隔离的路由键（schema/catalog/namespace） | `organization`（回退 `tenant`） | 是 | gateway 注入 | `starter-tenant` → `TenantContext.tenantId` |
-| `X-Tenant-Org` | 原始 org 标识/别名（信息性） | 同上 | 否 | gateway 注入 | `starter-tenant` → `TenantContext.org`（可选） |
+| `X-Tenant-Id` | **稳定租户标识**——数据/计算隔离的路由键（schema/catalog/namespace） | `active_organization` → 单一 `organization` → `tenant`（选择规则见 §3.4） | 是 | gateway 注入 | `starter-tenant` → `TenantContext.tenantId` |
+| `X-Tenant-Org` | 活动 org 的原始标识/别名（信息性） | §3.4 选定活动 org 的原始标识（取自 `active_organization` / 单一 `organization`） | 否 | gateway 注入 | `starter-tenant` → `TenantContext.org`（可选） |
 | `X-Tenant-Subject` | 终端用户主体（`sub`） | `sub` | 否 | gateway 注入 | **预留**（当前 `starter-tenant` 未消费） |
 
 脱敏示例（请求到达上游时）：
@@ -37,6 +37,8 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 ```
 
 > 多租户模型：`org = 租户`（公网 SaaS=企业 / 私有化=部门），见架构 05 §1。占位一律脱敏（`acme` / `tenant-demo`）。
+>
+> **claim 结构基准**（以 Keycloak Organizations 映射为准）：`organization` 承载用户**全部 membership**（单项或多项）；`active_organization` 标识 org-scoped token **选定的活动 org**。`X-Tenant-Id` 取活动 org（按 §3.4 优先级），`X-Tenant-Org` 取同一活动 org 的原始标识/别名。
 
 ## 3. 产生方契约（gateway）
 
@@ -45,7 +47,12 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 1. **入口清洗**：先删除客户端可能携带的 `X-Tenant-*`，再写入网关可信值（防越权伪造）。
 2. **消费验签产物**：仅从 `openid-connect` 验签后注入的 `X-Userinfo`（base64 JSON）解析，自身不验签；必须与 `openid-connect` 同路由且在其后执行（priority 2598 紧随 2599）。
 3. **fail-closed**：`require_tenant=true`（默认）时——缺 `X-Userinfo`（路由漏配 openid-connect）→ `401`；userinfo 不可解析 → `403`；无租户声明 → `403`。
-4. **唯一租户**：一个请求必须解析到**恰好一个**租户；多 org 成员视为歧义 → `403`（不做不确定注入）。
+4. **单活动租户（解析规则）**：一个请求必须解析到**恰好一个活动租户**并注入唯一 `X-Tenant-Id`（D2：切换租户=重新换 token，`X-Tenant-Id` 始终唯一）。**结构上支持用户隶属多 org membership**，按以下**确定性优先级**选定活动租户：
+   1. **活动 org 优先**：org-scoped token 携带 `active_organization`（用户经 Keycloak 选定/切换 org 后换得的令牌）→ 取其为活动租户；
+   2. **单一 membership 回退**：无 `active_organization` 声明，但用户**恰好属单一 org** → 取该 org（无需选择，本就无歧义）；
+   3. **不可判定即 fail-closed**：多 membership 且无 `active_organization`（既未选定、又非单一）→ 无法确定唯一活动租户 → `403`（`require_tenant=true` 时，与 §3.3 同档），**绝不静默错注**（不得靠 `pairs` 遍历顺序等不确定行为挑一个）。
+
+   > 即：被拒绝的是「**无活动声明的多 membership**」这一**不可判定态**，而非「凡多 org 即拒绝」——已选定/切换 org 的多 membership 用户可正常解析到其活动租户。
 5. 同时把租户暴露为 `$tenant_id` 变量（供 `limit-count` 等按租户限流）——属网关内部用法，**不在本头契约范围**。
 
 ## 4. 消费方契约（服务侧）
@@ -65,14 +72,17 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 
 - `X-Tenant-Id` 的**具体形态是部署级固定**（demo 下 `alias==id`；生产可映射 org UUID），但**在单次部署内稳定**。消费方只能依赖「它是稳定路由键」，不得假设其为别名或 UUID 的某一种。
 - `X-Tenant-Org` 可能与 `X-Tenant-Id` 取值相同（当前实现）或不同（生产映射后）；消费方不得假设二者相等。
+- **活动租户解析对消费方语义稳定**：无论用户属单一还是多 org membership，到达上游的 `X-Tenant-Id` 始终是**单一稳定的活动租户路由键**（来源与选择规则见 §3.4）。消费方**不得假设「持头用户必为单 org」**——多 membership 是结构常态，切换活动租户在边缘（重新换 token）完成，下游无感。
 
 ## 7. 版本与兼容策略
 
 - 本 ICD 走 semver。**加法兼容**（新增可选头、放宽来源）允许在 MINOR；**改名 / 改语义 / 收紧必需性**为破坏性，需 MAJOR + 弃用期（产生方双跑新旧头一个窗口）+ 通知全部 consumers。
 - 默认 consumer 为 **tolerant reader**：忽略未知头、不依赖头顺序。
+- **本次修订（v1.0.0 → v1.1.0 · MINOR · 加法放宽，非破坏）**：§3.4 由「多 org 一律 `403`」放宽为「解析到单活动租户、结构预留多 membership」。对消费方契约（读取唯一 `X-Tenant-Id`）**无破坏**——仅放宽产生方的拒绝面，原被边缘拦截的多 membership 请求现可携唯一租户头到达上游；故**不设弃用期 / 双跑窗口**，仅作**信息性通知**全部 consumers（到量可能上升，行为无需改，但请各消费方自检是否残留「持头用户必为单 org」的隐含假设——§6 已禁止）：governance / security / tools-bi / privacy / data-foundation / platform-common / control-plane。
 
 ## 8. 一致性校验要点（契约测试）
 
 - **头名一致性**：gateway `tenant-context.lua` 的 `id_header`/`org_header`/`subject_header` 默认值，必须等于 `starter-tenant` `TenantProperties` 的 `header`/`orgHeader`（及未来 subject）默认值。当前均为 `X-Tenant-Id` / `X-Tenant-Org` ✅。
 - **行为契约**：缺身份 → 边缘 401/403（非放行到上游）；客户端伪造头被清洗。建议产生方侧 e2e（APISIX 起栈 + 伪造头）+ 消费方侧 `TenantContextFilter` 单测共同覆盖。
+- **多 membership → 单活动租户**（对应 §3.4 三分支，产生方侧契约测试须覆盖）：(a) org-scoped token 带 `active_organization` 的**多 membership** 用户 → 注入对应的唯一 `X-Tenant-Id`；(b) **单一 membership** 无活动声明 → 注入该 org；(c) **多 membership 且无活动声明** → 边缘 `403`（不静默挑选、注入结果不依赖 claim 遍历顺序）。
 - 纳入平台契约测试框架后，本 ICD 升 `stable`。
