@@ -1,12 +1,19 @@
 openapi: 3.1.0
 info:
   title: Control Plane · Tenant Lifecycle API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     控制平面（`services/control-plane`）对外的**租户注册 / 审批 / 开通状态 / 生命周期 / 配额查询**北向 REST 契约。
 
     控制平面是**跨租户单例**：自助注册 → 审批门控 → 命令式 provision（Keycloak Organizations + Helm SDK + 数据存储 + ESO）
     → 回写租户目录。设计见 `docs/architecture/05-多租户与控制平面.md` §2/§4 与 `docs/00-主仓初始化-spec.md` §2。
+
+    **路径前缀约定（`/api` strip）**：本契约描述**网关暴露**的路径（`/v1/...`）。控制平面**实现**统一挂在
+    部署级基路径 `/api` 下（即应用内 `/api/v1/...`），网关 APISIX 经 `proxy-rewrite` 去除 `/api` 前缀后转发。
+    故 `/api` 为**部署细节**、不属对外契约，消费方一律对齐契约 `/v1/...`。
+
+    **交付形态（delivery mode）为部署级、不入契约**：一个部署整体为公网 SaaS 或私有化（见架构 05 §1），
+    非按租户选择；故注册体**不**含 `deliveryMode`，由控制平面据部署配置统一推导。
 
     **租户目录状态机**：`registered → approving → provisioning → active → suspended → deleted`
     （权威枚举见 `TenantStatus`）。状态迁移规则、以及控制平面**外呼开通边界**（Keycloak / Helm / 数据存储 / ESO，
@@ -160,6 +167,8 @@ paths:
       description: |
         对处于 `registered` / `approving` 的租户做审批裁决。
         `approve` → 置为 `provisioning` 并启动命令式开通；`reject` → 置为 `deleted`（关闭，带 `reason`）。
+        **M1 实现注记**：开通当前为**同步**执行，`approve` 可能在同一响应内直接返回 `active`（而非过渡态 `provisioning`）；
+        异步轮询语义（停在 `provisioning` + `GET /provisioning`）为后置。消费方勿把 `provisioning` 写死为 approve 的必经返回态。
       operationId: decideApproval
       requestBody:
         required: true
@@ -368,6 +377,12 @@ components:
           $ref: "#/components/schemas/DataPlaneRef"
         quota:
           $ref: "#/components/schemas/QuotaSpec"
+        statusReason:
+          type: string
+          description: |
+            最近一次状态流转的原因 / 失败详情（审计与排障；如开通失败步骤、挂起原因、驳回理由）。
+            可选——未发生有意义流转时可不返回；消费方 tolerant reader。
+          example: 开通完成
         createdAt:
           type: string
           format: date-time

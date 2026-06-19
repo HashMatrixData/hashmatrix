@@ -50,7 +50,7 @@ contracts:
     type: openapi
     path: openapi/control-plane-v1.yaml
     status: draft          # 控制平面北向：租户注册/审批/开通状态/生命周期/配额查询 + 当前用户 membership（/me/tenants）
-    version: 1.1.0          # +GET /v1/me/tenants（加法兼容 MINOR）
+    version: 1.2.0          # +Tenant.statusReason + /api 前缀约定（加法/文档 MINOR；impl 结构对齐 #9）
     producers: [hashmatrix-control-plane]
     consumers: [hashmatrix-webui]
 
