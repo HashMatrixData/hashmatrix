@@ -44,6 +44,24 @@
 
 技术栈与具体选型**待独立讨论后逐步丰富**，当前为初始脚手架。
 
+## 🧭 开发里程碑
+
+当前里程碑：**M1 · 单命名空间端到端贯通**（11 仓同名 Milestone 承接）——本地 kind 单 ns 把各子系统以一个租户上下文跑通、侧栏一二级导航有功能可见、可向上阶段性演示。总纲与各仓交付清单见 **[`docs/milestones/M1-单命名空间端到端贯通.md`](docs/milestones/M1-单命名空间端到端贯通.md)**。已定关键决策（不可返工）：单 Keycloak User+多 Org Membership（切换=重新换 token，`X-Tenant-Id` 唯一）、白标部署级注入不按租户换肤、默认品牌 emerald、子仓交付 image 主仓 owns charts。
+
+## 🚏 服务端口分配基线（统一 · 避免同机并行端口冲突）
+
+> 约定：**应用 HTTP=80xx，管理/actuator=90xx**（`management.server.port` 独立）；中间件**单实例共享**、各服务用**独立 database**；端口一律 `${ENV:默认}` 可覆盖、由根 `Makefile` 驱动，**勿在各仓手维护**。完整表（含前端 dev / Doris / MinIO 等）见上述里程碑文档 §3。
+
+| 服务 | App / 管理 | · | 服务 | App / 管理 |
+|---|---|---|---|---|
+| gateway(APISIX) | 9080 / —(admin 9180) | · | tools-bi | 8085 / 9085 |
+| control-plane | 8081 / 9081 | · | privacy orch-java | 8086 / 9086 |
+| governance | 8082 / 9082 | · | privacy engine-py | 8087 / — |
+| security | 8083 / 9083 | · | privacy node-mock | 8088 / — |
+| data-foundation | 8084 / 9084 | · | platform-common | 8089 / 9089 |
+
+中间件：PostgreSQL `5432`（单实例+独立 db）、Keycloak `8180`、Elasticsearch `9200`、Doris `8030/9030/8040`、MinIO `9000/9001`、Kafka `9092`。前端 dev：console `5173`、admin `5174`、prototype `3000`。
+
 ## 🧪 本地测试基础设施（macOS / kind + DaoCloud 镜像缓存）
 
 本地跑 Helm / E2E 的统一底座在 **`tools/local-infra/`**，一条命令 `make up`。
