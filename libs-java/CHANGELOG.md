@@ -1,5 +1,13 @@
 # libs-java Changelog
 
+## libs-java-v0.2.1 — 2026-06-19
+
+生产装配修复（真实部署 / 重打包场景下公共能力失效的修正）；消费方应直接升至 0.2.1。
+
+- `hashmatrix-starter-security`：修正 `SecurityFilterChainConfiguration` 自动装配顺序（`after`→`before`），否则生产环境网关预认证过滤链整体失效、退化为 Spring Boot 默认安全（CSRF 开、`X-Roles` 被忽略、无 401 入口）。
+- `hashmatrix-starter-security`：新增 `SecurityErrorAdvice`——方法级 `@PreAuthorize` 拒绝映射为 403，避免被应用兜底吞成 500。
+- `hashmatrix-starter-web`：`GlobalExceptionHandler` 对实现 `ErrorResponse` 的框架异常按其携带状态返回（如 `NoResourceFound` → 404，不再一律 500）。
+
 ## libs-java-v0.2.0 — 2026-06-18
 
 补齐 spec §3 公共能力「日志 / 审计 / 鉴权」，公共依赖达到承诺线。
