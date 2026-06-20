@@ -16,3 +16,9 @@ hashmatrix.io/tier: dev-infra
 {{- $img := printf "%s:%s" .Values.echoStub.image.repository .Values.echoStub.image.tag -}}
 {{- if $reg }}{{ printf "%s/%s" $reg $img }}{{- else }}{{ $img }}{{- end }}
 {{- end -}}
+
+{{- define "infra-dev.postgres.image" -}}
+{{- $reg := .Values.global.imageRegistry | default "" -}}
+{{- $img := printf "%s:%s" .Values.postgres.image.repository .Values.postgres.image.tag -}}
+{{- if $reg }}{{ printf "%s/%s" $reg $img }}{{- else }}{{ $img }}{{- end }}
+{{- end -}}

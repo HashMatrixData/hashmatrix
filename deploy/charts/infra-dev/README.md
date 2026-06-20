@@ -1,7 +1,8 @@
 # deploy/charts/infra-dev —— 本地/dev 基础设施子 chart
 
-> **状态：dev-only（M1）**。`version: 0.1.0`。把 M1 端到端验证所需的 **in-cluster 依赖**装进单 ns：
-> in-cluster **Keycloak**（OIDC 身份源）+ **go-httpbin 回显 upstream**（临时替尚未就绪的 governance）。
+> **状态：dev-only（M1）**。`version: 0.2.0`。把 M1 端到端验证所需的 **in-cluster 依赖**装进单 ns：
+> in-cluster **Keycloak**（OIDC 身份源）+ **go-httpbin 回显 upstream**（临时替尚未就绪的 governance）
+> + in-cluster **PostgreSQL**（dev 级，单实例 + 各服务独立 db）。
 > 关联：#15（M1 贯通主线 · I1 in-cluster 身份/数据底座）、gateway `scripts/cluster_e2e.py`（集群末端 e2e）。
 
 ## 定位
@@ -13,6 +14,8 @@
   指向的**真实身份源**，预置 realm `hashmatrix`（公开客户端 `apisix` + 脱敏 demo 用户/orgs）。
 - **upstream-echo**（`mccutchen/go-httpbin`）——受保护路由的**临时回显上游**，`/headers` 回显其收到的请求头，
   使「网关注入 `X-Tenant-*` → 上游收到」闭环可被断言。
+- **PostgreSQL**（`postgres:16.4`，固定 Service `postgres:5432`）——真实后端（governance/control-plane…）的
+  dev 级关系库，单实例 + 各服务独立 db（`initdb` 幂等创建）；**无持久卷**（emptyDir，Pod 重建即重跑 initdb）。
 
 ## 关键决策（主仓拍板 · #15）
 
@@ -62,6 +65,21 @@ realm `hashmatrix` 的事实源(SoT)在 **`services/gateway/keycloak/realm-expor
 > 口令均为本地 dev 占位（`Passw0rd!`），**严禁用于任何真实环境**。
 > **同步 SoT → chart**：`bash deploy/scripts/sync-gateway-config.sh`（含 realm；`--check` 为 CI 漂移守卫）。
 
+## in-cluster PostgreSQL（#15 · I1 · dev 级）
+
+真实后端（governance/control-plane…）落地需关系库，故本 chart 增量补入 **dev 级 PostgreSQL**（决策 D-E
+「升级路径」的兑现，仍是自托管最小 manifest、不引社区 chart、守离线渲染门）：
+
+- **固定 Service `postgres:5432`**（非 release 前缀）——各服务 datasource 以 `postgres:5432/<db>` 稳定引用。
+- **单实例 + 各服务独立 db**（呼应端口基线「5432 单实例+独立 db」）：库名由 `values.postgres.databases` 驱动，
+  `initdb` 阶段**幂等创建**（`governance`/`controlplane`/`security`/`toolsbi`/`datafoundation`/`privacy`）。新增后端在 values 追加即可。
+- **dev 占位凭据**：单超级用户 `hashmatrix/hashmatrix` 拥有全部 db（`values.postgres.auth`）——**严禁用于任何真实环境（红线）**。
+- **无持久卷**（emptyDir）：Pod 重建即重跑 initdb 重建各 db；dev e2e 足够，需持久化走下文 Operator 升级路径。
+- **可移植硬化**：非 root（uid/gid 999）+ fsGroup + seccomp，restricted PSA 的 ns 也可跑。
+
+> **接线给后端（I5/A2）**：各子 chart 的 datasource 指向 `postgres:5432/<db>`、用户 `hashmatrix`、库名同上；
+> Keycloak 仍用 dev 内嵌 H2（`start-dev`），**不接此 PG**。
+
 ## 渲染与本地起栈
 
 ```bash
@@ -72,6 +90,7 @@ bash deploy/scripts/validate.sh localdev demo
 helm upgrade --install platform deploy/charts/platform \
   -f deploy/values/values.yaml -f deploy/values/values-localdev.yaml -n hashmatrix --create-namespace
 kubectl -n hashmatrix rollout status deploy/keycloak
+kubectl -n hashmatrix rollout status deploy/postgres
 kubectl -n hashmatrix rollout status deploy/upstream-echo
 kubectl -n hashmatrix rollout status deploy/platform-gateway
 
@@ -87,6 +106,7 @@ kubectl -n hashmatrix rollout status deploy/platform-gateway
 
 ## 不在本 chart 范围（明确边界）
 
-- **PG / 有状态数据库**：gateway E2E 不需要；待首个真实后端（control-plane/governance）落地时再按 D-E 增量补入。
+- **生产级有状态库 / Operator / 持久卷 / HA**：本 chart 的 PG 是 dev 单实例 + emptyDir（**无持久化**）；
+  生产/HA 仍走 platform `Chart.yaml` 注释的 Operator 升级路径（CloudNativePG / bitnami 等），不返工。
 - **真实 governance/control-plane**：子仓 owned（I5）；本 chart 仅提供其就绪前的 dev 替身。
 - **生产身份**：本 Keycloak 为 dev 单副本、明文 dev 口令、无持久卷——**严禁用于任何非本地环境**。

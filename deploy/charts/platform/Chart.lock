@@ -25,6 +25,6 @@ dependencies:
   version: 0.0.0-placeholder
 - name: infra-dev
   repository: file://../infra-dev
-  version: 0.1.0
-digest: sha256:9113297c1d855e1b8438d29824ac0a4a325705cf967f7f4cf3206d87d3bc79ba
-generated: "2026-06-19T16:40:44.738184+08:00"
+  version: 0.2.0
+digest: sha256:88818c456a64548430eb93117ad68cd966ca6dd345ce57de625dcab539eb004e
+generated: "2026-06-20T09:26:10.526958+08:00"

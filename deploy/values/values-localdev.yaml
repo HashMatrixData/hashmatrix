@@ -8,7 +8,8 @@ global:
 baseNamespaces:
   podSecurity: baseline   # 本地放宽到 baseline，便于联调
 
-# dev 基础设施子 chart：in-cluster Keycloak + 回显 upstream（见 charts/infra-dev/README）。
+# dev 基础设施子 chart：in-cluster Keycloak + 回显 upstream + PostgreSQL（见 charts/infra-dev/README）。
+# PG 随 infra-dev 默认起（postgres.enabled 默认 true）：固定 Service postgres:5432，各服务独立 db 由 initdb 幂等建。
 infra-dev:
   enabled: true
 

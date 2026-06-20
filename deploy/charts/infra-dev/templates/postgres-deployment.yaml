@@ -1,0 +1,92 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  replicas: 1
+  # 单实例有状态库：Recreate 避免滚动期两副本并存（dev 无持久卷，更不应有第二写者）。
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: postgres
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "infra-dev.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # initdb 脚本变更滚动重启（仅空 PGDATA 时生效；dev emptyDir 每次重建都会重跑 initdb）。
+        checksum/initdb: {{ include (print $.Template.BasePath "/postgres-configmap.yaml") . | sha256sum }}
+    spec:
+      # 非 root（官方 postgres 用户 uid/gid 999）+ fsGroup 令 emptyDir 对该 gid 可写——
+      # 令本 dev chart 在打了 baseline/restricted PSA label 的 ns 也可移植。
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: {{ include "infra-dev.postgres.image" . | quote }}
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            # 仅本地 dev 占位凭据（单超级用户拥有全部 db）——严禁用于真实环境（红线）。
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.username | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.bootstrapDb | quote }}
+            # PGDATA 置于卷子目录（约定俗成，避免卷根杂项干扰 initdb）。
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.postgres.service.port }}
+          readinessProbe:
+            # pg_isready = 可接受连接（initdb 完成后才稳定 ready）。
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgres.auth.username | quote }}
+                - -d
+                - {{ .Values.postgres.auth.bootstrapDb | quote }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        # dev 无持久卷（与本 chart Keycloak 一致）：Pod 重建即重跑 initdb 重建各 db，dev e2e 足够。
+        - name: data
+          emptyDir: {}
+        - name: initdb
+          configMap:
+            name: postgres-initdb
+{{- end }}

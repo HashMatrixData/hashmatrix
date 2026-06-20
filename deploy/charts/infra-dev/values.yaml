@@ -38,3 +38,31 @@ echoStub:
   service:
     port: 8080               # go-httpbin 默认监听 8080
   resources: {}
+
+# ── in-cluster PostgreSQL（dev 级有状态库；单实例 + 各服务独立 db，呼应端口基线「5432 单实例+独立 db」）──
+# 决策 D-E 的增量落地（#15 · I1）：自托管最小 manifest，非社区 chart，守离线渲染门。
+# 数据用 emptyDir（**无持久卷**，与本 chart Keycloak 一致）：Pod 重建即重跑 initdb 重建各 db——dev e2e 足够。
+# 各服务 datasource 由其子 chart（I5）指向固定 Service `postgres:5432`，库名见 databases。
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16.4"               # 钉 minor，dev 可复现；走 DaoCloud docker.io 镜像（见 tools/local-infra）
+    pullPolicy: IfNotPresent
+  # 仅本地 dev 占位凭据（单超级用户拥有全部 db）——严禁用于真实环境（红线）。
+  auth:
+    username: hashmatrix
+    password: hashmatrix
+    bootstrapDb: hashmatrix   # postgres 镜像要求一个初始 db；各服务库由 initdb 脚本另建
+  # 各服务独立 db（initdb 幂等创建）。新增后端时在此追加；JDBC: postgres:5432/<db>。
+  # 名取无分隔小写以免 SQL 加引号（control-plane→controlplane / tools-bi→toolsbi / data-foundation→datafoundation）。
+  databases:
+    - governance
+    - controlplane
+    - security
+    - toolsbi
+    - datafoundation
+    - privacy
+  service:
+    port: 5432
+  resources: {}              # 占位：按 ns ResourceQuota 调

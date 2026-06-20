@@ -1,0 +1,23 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+data:
+  # postgres 官方镜像在「PGDATA 为空」时执行 /docker-entrypoint-initdb.d/*.sh（dev emptyDir 每次重建都会跑）。
+  # 各服务独立 db 在此幂等创建（先查 pg_database 再 CREATE），呼应端口基线「单实例 + 独立 db」。
+  10-create-databases.sh: |
+    #!/bin/bash
+    set -e
+    for db in {{ range .Values.postgres.databases }}{{ . | quote }} {{ end }}; do
+      if ! psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+            -tAc "SELECT 1 FROM pg_database WHERE datname = '$db'" | grep -q 1; then
+        echo "initdb: creating database $db"
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+          -c "CREATE DATABASE \"$db\""
+      fi
+    done
+{{- end }}
