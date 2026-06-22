@@ -24,10 +24,6 @@ dependencies:
     version: "0.0.0-placeholder"
     repository: "file://../security"
     condition: security.enabled
-  - name: tools-bi
-    version: "0.0.0-placeholder"
-    repository: "file://../tools-bi"
-    condition: tools-bi.enabled
   - name: privacy
     version: "0.0.0-placeholder"
     repository: "file://../privacy"
