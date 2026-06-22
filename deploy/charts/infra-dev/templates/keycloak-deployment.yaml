@@ -51,6 +51,11 @@ spec:
             # 访问即得 iss=http://keycloak:8080/realms/<realm>，与网关 discovery 默认值一致、验签通过。
             - name: KC_HOSTNAME_STRICT
               value: "false"
+            {{- with .Values.keycloak.jvmOpts }}
+            # JVM 堆受容器 memory limit 约束（非节点总内存）；防多 JVM 叠加 OOM（#32）。
+            - name: JAVA_OPTS_APPEND
+              value: {{ . | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.keycloak.service.port }}

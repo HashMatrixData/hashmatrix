@@ -28,6 +28,15 @@ contracts:
       - hashmatrix-data-foundation
       - hashmatrix-platform-common
 
+  - id: openapi/privacy-orchestrator-v1
+    type: openapi
+    path: openapi/privacy-orchestrator-v1.yaml
+    status: draft          # 编排层对外 REST（客户端/网关 → orchestrator-java），经网关 /api/privacy/* 暴露
+    version: 1.0.0
+    producers: [hashmatrix-privacy]
+    consumers:
+      - hashmatrix-webui
+
   - id: openapi/privacy-psi-v1
     type: openapi
     path: openapi/privacy-psi-v1.yaml
@@ -82,3 +91,12 @@ contracts:
       - hashmatrix-security
       - hashmatrix-data-foundation
       - hashmatrix-platform-common
+
+  - id: openapi/governance-metamodel
+    type: openapi
+    path: openapi/governance-metamodel.yaml
+    status: draft          # 元模型管理写侧（webui 元模型设计器 ↔ governance），待 webui 评审对齐
+    version: 0.1.0
+    producers: [hashmatrix-governance]
+    consumers:
+      - hashmatrix-webui

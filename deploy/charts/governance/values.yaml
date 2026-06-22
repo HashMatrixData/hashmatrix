@@ -16,7 +16,17 @@ image:
   pullPolicy: IfNotPresent
 
 replicas: 1
-resources: {}                 # 占位：按 ns ResourceQuota 调
+# 资源限额（dev 保守默认；prod 经 values-<env> 上调）。**memory limit 是 OOM 护栏**——
+# 无 limit 时 JVM 按节点总内存自估 max heap，多 JVM 叠加会撑爆 dev 机（见主仓 #32）。
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+# JVM 堆随**容器 limit**自适配（非节点总内存）：MaxRAMPercentage 作用于 cgroup limit。
+# 注入为 JAVA_TOOL_OPTIONS（Spring Boot 容器镜像识别）；置空则不注入、用镜像默认。
+jvmOpts: "-XX:MaxRAMPercentage=75.0"
 
 service:
   type: ClusterIP
