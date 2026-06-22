@@ -12,7 +12,13 @@ image:
   pullPolicy: IfNotPresent
 
 replicas: 1
-resources: {}               # 占位：按 ns ResourceQuota 调
+# 资源限额（dev 保守默认；prod 经 values-<env> 上调）。APISIX 非 JVM。
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
 
 service:
   type: ClusterIP
