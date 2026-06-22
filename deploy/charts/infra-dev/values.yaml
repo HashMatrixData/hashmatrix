@@ -23,7 +23,15 @@ keycloak:
   realm: hashmatrix           # 须与 realm-export.json 的 realm 名一致（gateway discovery 路径同名）
   service:
     port: 8080               # 集群内应用端口（基线 8180 仅宿主/dev 暴露，勿写进集群侧 discovery）
-  resources: {}              # 占位：按 ns ResourceQuota 调
+  # 资源限额（dev 保守默认）。Keycloak 是 JVM 且 realm import 较重 → limit 给足。**OOM 护栏**（#32）。
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      memory: 768Mi
+  # Keycloak JVM 堆随容器 limit 自适配；JAVA_OPTS_APPEND 是 Keycloak 官方扩展点。置空则不注入。
+  jvmOpts: "-XX:MaxRAMPercentage=70.0"
 
 # ── 回显 upstream（go-httpbin）——临时替尚未就绪的 governance（决策 D-F）──
 # governance 镜像未就绪期间，网关受保护路由上游暂指此回显端点（/headers 回显收到的请求头），
@@ -37,7 +45,13 @@ echoStub:
     pullPolicy: IfNotPresent
   service:
     port: 8080               # go-httpbin 默认监听 8080
-  resources: {}
+  # 资源限额（dev 保守默认）。go-httpbin 极轻量。
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
 
 # ── in-cluster PostgreSQL（dev 级有状态库；单实例 + 各服务独立 db，呼应端口基线「5432 单实例+独立 db」）──
 # 决策 D-E 的增量落地（#15 · I1）：自托管最小 manifest，非社区 chart，守离线渲染门。
@@ -65,4 +79,10 @@ postgres:
     - privacy
   service:
     port: 5432
-  resources: {}              # 占位：按 ns ResourceQuota 调
+  # 资源限额（dev 保守默认）。Postgres 非 JVM。
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
