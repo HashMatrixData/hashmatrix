@@ -1,0 +1,72 @@
+# webui 子 chart values —— M1 真实部署（前端 Web UI）。
+# 🔴 红线：仅 dev 占位 / 脱敏 demo（acme / tenant-demo / example.com）；严禁任何真实甲方参数。
+# D5：子仓交付 image，主仓 owns chart；镜像部署级注入、tag 固定（勿 latest）。
+# umbrella 经 `webui.enabled` 渲染（默认关，仅 values-localdev 开）。
+# console（租户面）与 admin（运营面）双镜像/双部署/双 Service，互不可达（安全爆炸半径隔离）。
+
+# umbrella 注入的全局项（standalone 渲染时为空 dict）；imageRegistry 供信创 xc 切私有/国产化镜像仓。
+global:
+  imageRegistry: ""
+
+# umbrella 条件开关（对应 platform/Chart.yaml dependencies 的 condition: webui.enabled）。
+enabled: false
+
+# ── 部署级品牌（D3：部署期注入，不按租户运行期换肤；默认 emerald）。console/admin 共用默认 ──
+# 经容器 entrypoint envsubst 渲染 /usr/share/nginx/html/config.js（改 env 重启即换肤，免重建镜像）。
+# 🔴 红线：默认值脱敏占位（example.com / Acme Demo Tech）。
+branding:
+  appName: "HashMatrix"
+  companyName: "Acme Demo Tech"
+  colorPrimary: "#059669"     # D4：默认品牌 emerald
+  colorSecondary: "#10b981"
+
+# nginx 静态 SPA 共用：runtime 跑 root master + :80（nginx:1.27-alpine 镜像约定）。
+# ⚠️ 不设 runAsNonRoot：官方 nginx 镜像 master 以 root 起、绑特权口 80。localdev PSA=baseline 可跑；
+#    生产硬化（nginx-unprivileged + :8080 + runAsNonRoot）列 post-M1 follow-up（见 README）。
+
+console:
+  image:
+    repository: ghcr.io/hashmatrixdata/webui-console
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  # nginx 轻量（非 JVM）：小资源默认。
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 80
+  config:
+    # 同源经网关访问后端：console 调 /api/*（网关 strip /api，受保护路由分流到各后端）。
+    apiBaseUrl: "/api"
+    # OIDC：浏览器侧 authority 指向部署可达的 Keycloak realm（localdev 经 values 注入宿主暴露地址）。
+    oidcAuthority: ""
+    oidcClientId: "hashmatrix-webui"
+    oidcScope: "openid profile email"
+
+admin:
+  image:
+    repository: ghcr.io/hashmatrixdata/webui-admin
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 80
+  config:
+    # admin 主调 control-plane（受保护路由 /api/v1/*）：apiBaseUrl=/api，前端按 /api/v1/... 调用。
+    apiBaseUrl: "/api"
+    oidcAuthority: ""
+    # 运营面用独立（superadmin）client，与 console 区分。
+    oidcClientId: "hashmatrix-admin"
+    oidcScope: "openid profile email"

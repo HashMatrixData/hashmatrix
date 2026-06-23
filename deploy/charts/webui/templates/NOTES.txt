@@ -1,0 +1,16 @@
+webui 已渲染：console + admin 两套 nginx 静态 SPA（各 Deployment + Service，:80）。
+  - webui-console（租户控制台·使用面），品牌 {{ .Values.branding.appName }}（primary {{ .Values.branding.colorPrimary }}）。
+  - webui-admin（平台管理台·运营面，独立域名，与 console 互不可达）。
+config.js 由容器 entrypoint envsubst 运行期渲染（改 env 重启即换肤，免重建镜像）。
+
+就绪自检：
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/webui-console
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/webui-admin
+
+经网关访问（APISIX 按 Host 分流；浏览器经 /etc/hosts 或 Host 头）：
+  curl -H "Host: <console-host>" http://<gateway>:9080/            # 返回 SPA index.html
+  curl -H "Host: <console-host>" http://<gateway>:9080/config.js   # 含注入的品牌/OIDC/API base
+  curl -H "Host: <admin-host>"   http://<gateway>:9080/            # admin SPA
+  # /api/* 高优先级受保护路由先匹配 → 两面的后端调用各走对应后端路由（console→各业务，admin→control-plane）。
+
+关联 M1 贯通主线（I3 · webui nginx chart / I5 经网关可达）；D3 部署级白标、D4 默认 emerald。

@@ -1,2 +1,13 @@
-data-foundation 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/data-foundation 贡献后充实；关联 HashMatrixData/hashmatrix#2。
+data-foundation（数据底座）已渲染：Deployment + Service `data-foundation`（应用 8084 / 管理 9084）。
+M1 无持久 datasource（连接器目录骨架 ConnectorController）；采集/计算（Flink/CDC）属 post-M1。
+
+就绪自检：
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/data-foundation
+  kubectl -n {{ .Release.Namespace }} exec deploy/data-foundation -- \
+    sh -c 'wget -qO- http://127.0.0.1:{{ .Values.managementPort }}/actuator/health/readiness'
+
+经网关可达（受保护路由 /api/connectors/*，需 OIDC token）：
+  curl -H "Authorization: Bearer <token>" http://<gateway>:9080/api/connectors/tenant-catalog
+  # auth-tenant 链注入 X-Tenant-* 后到达 data-foundation；链路通 + readiness 真绿即算可达。
+
+关联 M1 贯通主线（I5 · data-foundation 真实部署）。

@@ -1,0 +1,21 @@
+apiVersion: v2
+name: webui
+description: |
+  前端 Web UI 子 chart（M1 真实部署）。由 umbrella chart `platform` 按 `webui.enabled` 聚合。
+  D5：子仓 services/webui 交付 image，主仓 owns chart。两套独立镜像/部署/Service：console（租户控制台·使用面）
+  + admin（平台管理台·运营面），互不可达（安全爆炸半径隔离）。nginx 托管静态 SPA（:80），运行期由 env 渲染
+  config.js（D3 部署级白标，默认品牌 emerald #059669，不按租户运行期换肤）。经 APISIX 网关按 Host 分流入口。
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - hashmatrix
+  - webui
+  - frontend
+  - nginx
+
+home: https://github.com/HashMatrixData/hashmatrix-webui
+sources:
+  - https://github.com/HashMatrixData/hashmatrix-webui

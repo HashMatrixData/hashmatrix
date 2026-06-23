@@ -14,8 +14,10 @@ data:
 {{ .Files.Get "files/config.yaml" | indent 4 }}
   # 声明式配置（集群版）：env-specific 字段（OIDC discovery / 上游）由 chart values 注入。
   # 结构镜像 SoT services/gateway/apisix/apisix.yaml（其 mock-upstream 仅本地 compose 自洽）。
-  # 集群版落三条路由：protected-api（/api/* 受保护纵切·租户上下文第一关）+ privacy-api（/api/privacy/* 隐私计算）
-  # + public-open（无鉴权·可达性探活）；
+  # 集群版受保护路由（共享 auth-tenant 链，priority:10）：protected-api（/api/* 兜底·租户上下文第一关）
+  # + privacy-api（/api/privacy/*）+ security-api（/api/security/*）+ control-plane-api（/api/v1/*）
+  # + data-foundation-api（/api/connectors/*）+ platform-common-api（/api/platform/*）；
+  # 公共路由：webui-console / webui-admin（按 Host 分流静态 SPA·无鉴权）+ public-open（可达性探活）。
   # SoT 的本地演示/限流路由（如 ratelimit-demo）不入集群。**SoT 新增受保护路由时，需在此手工同步扩展。**
   # standalone 模式要求末行 #END 结束标记，勿删。
   apisix.yaml: |
@@ -35,6 +37,31 @@ data:
         type: roundrobin
         nodes:
           "{{ .Values.upstreams.security.host }}:{{ .Values.upstreams.security.port }}": 1
+      - id: control-plane-upstream
+        name: control-plane-upstream
+        type: roundrobin
+        nodes:
+          "{{ (index .Values.upstreams "control-plane").host }}:{{ (index .Values.upstreams "control-plane").port }}": 1
+      - id: data-foundation-upstream
+        name: data-foundation-upstream
+        type: roundrobin
+        nodes:
+          "{{ (index .Values.upstreams "data-foundation").host }}:{{ (index .Values.upstreams "data-foundation").port }}": 1
+      - id: platform-common-upstream
+        name: platform-common-upstream
+        type: roundrobin
+        nodes:
+          "{{ (index .Values.upstreams "platform-common").host }}:{{ (index .Values.upstreams "platform-common").port }}": 1
+      - id: webui-console-upstream
+        name: webui-console-upstream
+        type: roundrobin
+        nodes:
+          "{{ (index .Values.upstreams "webui-console").host }}:{{ (index .Values.upstreams "webui-console").port }}": 1
+      - id: webui-admin-upstream
+        name: webui-admin-upstream
+        type: roundrobin
+        nodes:
+          "{{ (index .Values.upstreams "webui-admin").host }}:{{ (index .Values.upstreams "webui-admin").port }}": 1
     # 共享插件链：OIDC 校验 + 租户上下文注入 + 审计（受保护路由统一引用，DRY）。
     # 🔒 openid-connect 与 tenant-context 必须成对：前者验签注入 X-Userinfo，后者据此注入 X-Tenant-*。
     plugin_configs:
@@ -127,6 +154,82 @@ data:
             rejected_code: 429
             policy: local
             allow_degradation: true
+      # control-plane 受保护路由：复用 auth-tenant 链，路由到多租户控制平面。
+      # priority 高于 protected-api（/api/*）防被通配兜底抢走；后端服务全路径 /api/v1/...
+      # （网关 strip 部署级 /api，对外 /v1/...；@RequestMapping("/api/v1/...")，无 context-path）→ 不剥前缀。
+      - id: control-plane-api
+        name: control-plane-api
+        desc: "多租户控制平面受保护路由（租户注册/审批/开通/配额 + /v1/me/tenants）"
+        uri: /api/v1/*
+        priority: 10
+        upstream_id: control-plane-upstream
+        plugin_config_id: auth-tenant
+        plugins:
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
+      # data-foundation 受保护路由：复用 auth-tenant 链，路由到数据底座。
+      # 后端 ConnectorController 服务全路径 /api/connectors/...（无 context-path）→ 不剥前缀。
+      - id: data-foundation-api
+        name: data-foundation-api
+        desc: "数据底座受保护路由（连接器目录）"
+        uri: /api/connectors/*
+        priority: 10
+        upstream_id: data-foundation-upstream
+        plugin_config_id: auth-tenant
+        plugins:
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
+      # platform-common 受保护路由：复用 auth-tenant 链，路由到平台公共服务。
+      # 后端 PlatformInfoController 服务全路径 /api/platform/...（无 context-path）→ 不剥前缀。
+      - id: platform-common-api
+        name: platform-common-api
+        desc: "平台公共服务受保护路由（调度/元数据/审计）"
+        uri: /api/platform/*
+        priority: 10
+        upstream_id: platform-common-upstream
+        plugin_config_id: auth-tenant
+        plugins:
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
+      # webui 公共路由（无鉴权·静态 SPA）：按 Host 分流 console / admin（同源隔离，爆炸半径）。
+      # priority:0（默认）< /api/* 受保护路由 → 两面的后端 API 调用仍各走对应后端路由；
+      # 本路由仅承接 SPA shell / assets / config.js。SPA 路由回退由镜像内 nginx try_files 处理。
+      - id: webui-console
+        name: webui-console
+        desc: "租户控制台静态 SPA（按 Host 分流，无鉴权）"
+        uri: /*
+        hosts:
+          - {{ .Values.webui.hosts.console | quote }}
+        upstream_id: webui-console-upstream
+        plugins:
+          audit-log: {}
+      - id: webui-admin
+        name: webui-admin
+        desc: "平台管理台静态 SPA（按 Host 分流·独立域名，无鉴权）"
+        uri: /*
+        hosts:
+          - {{ .Values.webui.hosts.admin | quote }}
+        upstream_id: webui-admin-upstream
+        plugins:
+          audit-log: {}
       # 公共路由：无鉴权，用于网关可达性探活（9080 经 Service 可达验证）。
       - id: public-open
         name: public-open
