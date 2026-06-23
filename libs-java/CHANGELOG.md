@@ -1,5 +1,11 @@
 # libs-java Changelog
 
+## libs-java-v0.2.2 — 2026-06-23
+
+探针放行修复（K8s 存活/就绪探针被 401）；消费方应直接升至 0.2.2（hashmatrix#26）。
+
+- `hashmatrix-starter-security`：默认 `permitPaths` 增列 `/actuator/health/**`。`requestMatchers("/actuator/health")` 在 Spring Security 下**仅精确匹配**，不覆盖 health group 子端点；导致匿名 K8s 探针访问 `/actuator/health/{liveness,readiness}` 落入 `anyRequest().authenticated()` 被拒成 401。`/**` 在 AntPath/PathPattern 下同时覆盖 `/actuator/health` 本身。`SecurityFilterChainWebMvcTest` 的 `@ValueSource` 增列两条探针子路径钉死根因，退回精确路径即报红。
+
 ## libs-java-v0.2.1 — 2026-06-19
 
 生产装配修复（真实部署 / 重打包场景下公共能力失效的修正）；消费方应直接升至 0.2.1。

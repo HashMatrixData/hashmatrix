@@ -1,13 +1,14 @@
 apiVersion: v2
 name: platform-common
 description: |
-  调度/认证/元数据（占位子 chart）。由 umbrella chart `platform` 按 `platform-common.enabled` 条件聚合。
-  实际部署模板由对应 submodule services/platform-common 贡献后逐步充实（schema-first / 占位先行）。
+  平台公共服务子 chart（调度/工作流/统一元数据/审计）（M1 真实部署）。由 umbrella chart `platform`
+  按 `platform-common.enabled` 聚合。D5：子仓 services/platform-common 交付 image，主仓 owns chart。
+  M1 提供 Deployment + Service（应用 8089 / 管理 9089），datasource 指向 infra-dev in-cluster PG
+  （独立 db `platformcommon`，纯 JDBC 无 JPA）；经网关可达、readiness 真实绿。完整调度/元数据属 post-M1。
 type: application
 
-# 占位版本：尚未发布。
-version: 0.0.0-placeholder
-appVersion: "0.0.0"
+version: 0.1.0
+appVersion: "0.1.0"
 
 keywords:
   - hashmatrix

@@ -24,8 +24,14 @@ infra-dev:
 
 # gateway（#17 已落地）：discovery 默认指向 in-cluster keycloak:8080（与 infra-dev 固定 Service 名对齐）。
 # A3：受保护路由上游 = 真实 governance:8082（gateway chart 默认值），不再指回显桩。
+# webui 公共路由按 Host 分流（本地经 /etc/hosts 把 console.localdev/admin.localdev 指向 127.0.0.1，
+# 或 curl -H "Host: console.localdev"）。上游 host/port 由 gateway chart 默认提供，此处仅定 Host。
 gateway:
   enabled: true
+  webui:
+    hosts:
+      console: console.localdev
+      admin: admin.localdev
 
 # governance（#15 · I5/A3）：真实子 chart 进集群，datasource 指 infra-dev 的 in-cluster PG。
 # 镜像与 datasource(host=postgres/user=hashmatrix/db=governance) 由子 chart values 默认提供；此处仅开开关。
@@ -40,3 +46,62 @@ governance:
 # 经网关可达由 gateway chart 的 security-upstream + 受保护路由 /api/security/* 承载（I2）。
 security:
   enabled: true
+
+# ── M1·I5/I3：control-plane / data-foundation / platform-common / webui 真实子 chart 进集群 ──
+# ⚠️ 多 JVM 叠加（keycloak + governance + security + 本三后端 = 6 个 JVM）：6–8G dev 机靠下方
+#    **小本地启动资源**（收紧 request/limit + 降 MaxRAMPercentage）兜 OOM；更紧张时按需关闭某开关（#32/#33）。
+# 经网关可达由 gateway chart 对应 upstream + 受保护路由承载（control-plane /api/v1/*、
+# data-foundation /api/connectors/*、platform-common /api/platform/*；webui 按 Host 分流 /*）。
+
+# control-plane（控制平面）：datasource 指 in-cluster PG（独立 db `controlplane`，Flyway 管 schema）；
+# 身份开通默认 stub（keycloak.enabled=false），M1 不阻塞；切真实 Keycloak 见子 chart README。
+control-plane:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 384Mi
+  jvmOpts: "-XX:MaxRAMPercentage=70.0"
+
+# data-foundation（数据底座）：M1 无持久 datasource（连接器目录骨架）。
+data-foundation:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 384Mi
+  jvmOpts: "-XX:MaxRAMPercentage=70.0"
+
+# platform-common（平台公共服务）：datasource 指 in-cluster PG（独立 db `platformcommon`，纯 JDBC）。
+platform-common:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 384Mi
+  jvmOpts: "-XX:MaxRAMPercentage=70.0"
+
+# webui（前端）：console + admin 双 nginx 静态 SPA（轻量，非 JVM，用子 chart 小资源默认）。
+# OIDC authority 指向**浏览器可达**的 dev Keycloak（宿主暴露 8180；勿用集群内 keycloak:8080——浏览器够不到）。
+# 🔴 红线：脱敏占位（*.localdev / localhost）；真实域名/realm 部署级注入。
+webui:
+  enabled: true
+  branding:
+    appName: "HashMatrix"
+    companyName: "Acme Demo Tech"
+  console:
+    config:
+      apiBaseUrl: "/api"
+      oidcAuthority: "http://localhost:8180/realms/hashmatrix"
+      oidcClientId: "hashmatrix-webui"
+  admin:
+    config:
+      apiBaseUrl: "/api"
+      oidcAuthority: "http://localhost:8180/realms/hashmatrix"
+      oidcClientId: "hashmatrix-admin"

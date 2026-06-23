@@ -1,14 +1,59 @@
-# control-plane 子 chart values（占位）。
-# 落地时由 services/control-plane 贡献真实模板，并接入 umbrella 的分环境 values（prod/test/xc）。
+# control-plane 子 chart values —— M1 真实部署（多租户控制平面）。
+# 🔴 红线：仅 dev 占位凭据 / 脱敏 demo（acme / tenant-demo / example.com）；严禁任何真实甲方参数。
+# D5：子仓交付 image，主仓 owns chart；镜像部署级注入、tag 固定（勿 latest）。
+# umbrella 经 `control-plane.enabled` 渲染（默认关，仅 values-localdev 开）。
 
-# umbrella 通过 `control-plane.enabled` 条件决定是否渲染本子 chart（默认关闭，占位阶段不产出清单）。
+# umbrella 注入的全局项（standalone 渲染时为空 dict）；imageRegistry 供信创 xc 切私有/国产化镜像仓。
+global:
+  imageRegistry: ""
+
+# umbrella 条件开关（对应 platform/Chart.yaml dependencies 的 condition: control-plane.enabled）。
 enabled: false
 
-# 镜像（占位，部署级注入）。
 image:
-  repository: ""        # e.g. ghcr.io/hashmatrixdata/control-plane
-  tag: ""               # 部署期固定具体 tag，避免 latest
+  repository: ghcr.io/hashmatrixdata/control-plane
+  tag: "0.1.0"                # dev 固定 tag；本地经 kind load 入节点（配 IfNotPresent）
   pullPolicy: IfNotPresent
 
-# 副本与资源（占位，落地时按 SLO 调整）。
-replicaCount: 1
+replicas: 1
+# 资源限额（dev 保守默认；prod 经 values-<env> 上调）。**memory limit 是 OOM 护栏**——
+# 无 limit 时 JVM 按节点总内存自估 max heap，多 JVM 叠加会撑爆 dev 机（见主仓 #32）。
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+# JVM 堆随**容器 limit**自适配（非节点总内存）：MaxRAMPercentage 作用于 cgroup limit。
+# 注入为 JAVA_TOOL_OPTIONS（Spring Boot 容器镜像识别）；置空则不注入、用镜像默认。
+jvmOpts: "-XX:MaxRAMPercentage=75.0"
+
+service:
+  type: ClusterIP
+  port: 8081                  # 应用 HTTP（端口基线）；gateway upstream host=control-plane:8081 依赖此名/口
+managementPort: 9081          # actuator（探针/指标），独立于应用端口（端口基线 §3）
+
+# ── 数据源：指向 infra-dev 的 in-cluster PG（独立 db `controlplane`，Flyway 管 schema）──
+# 🔴 dev 占位凭据；生产经 ESO/secretRef 注入 CONTROL_PLANE_DB_PASSWORD。
+# 注意 user=hashmatrix：infra-dev PG 的单超级用户（≠ 应用默认 control_plane）。
+# 应用侧 env 为完整 JDBC URL（CONTROL_PLANE_DB_URL）→ 模板按 host/port/db 拼接。
+datasource:
+  host: postgres
+  port: 5432
+  db: controlplane            # 对齐 infra-dev initdb 库名（无分隔小写）
+  user: hashmatrix
+  password: hashmatrix
+
+# ── 身份开通（D6）：M1 默认 stub（identity 未设 → stub 适配器，无需活 Keycloak）──
+# enabled=true 切真实 Keycloak Admin IdentityProvisioner（建 org + 租户管理员，回写 keycloak_org_id）。
+# 🔴 红线：以下均 dev 脱敏占位；生产经 ESO/secretRef 注入 adminPassword。集群内经 Service:8080 访问 Keycloak。
+keycloak:
+  enabled: false
+  serverUrl: "http://keycloak:8080"
+  authRealm: master
+  targetRealm: hashmatrix
+  clientId: admin-cli
+  adminUser: admin
+  adminPassword: admin
+  tenantAdminRole: tenant-admin
+  domainSuffix: example.com

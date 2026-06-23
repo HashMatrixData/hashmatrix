@@ -50,6 +50,34 @@ upstreams:
   security:
     host: security
     port: 8083
+  # 多租户控制平面。control-plane chart 固定 Service 名 control-plane；受保护路由 /api/v1/* 指向此上游
+  # （后端服务全路径 /api/v1/...，网关 strip 部署级 /api，对外为 /v1/...）。
+  control-plane:
+    host: control-plane
+    port: 8081
+  # 数据底座分系统。data-foundation chart 固定 Service 名 data-foundation；受保护路由 /api/connectors/* 指向此上游。
+  data-foundation:
+    host: data-foundation
+    port: 8084
+  # 平台公共服务。platform-common chart 固定 Service 名 platform-common；受保护路由 /api/platform/* 指向此上游。
+  platform-common:
+    host: platform-common
+    port: 8089
+  # 前端 Web UI（两套）：console 租户面 / admin 运营面（webui chart 固定 Service 名）。
+  # 公共路由按 Host 分流到此二上游（见 webui.hosts）；nginx 静态 SPA 监听 :80。
+  webui-console:
+    host: webui-console
+    port: 80
+  webui-admin:
+    host: webui-admin
+    port: 80
+
+# ── webui 公共路由按 Host 分流（console/admin 同源隔离）。本地经 /etc/hosts 或 Host 头访问 ──
+# 🔴 红线：脱敏占位域名（*.localdev / example.com）；真实域名部署级注入。
+webui:
+  hosts:
+    console: console.localdev
+    admin: admin.localdev
 
 # ── 受保护路由按租户限流（注入后的可信 $tenant_id 维度，非客户端原始头）──
 rateLimit:

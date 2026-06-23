@@ -38,6 +38,8 @@ platform-common:
   enabled: false
 control-plane:
   enabled: false
+webui:
+  enabled: false
 
 # ── 有状态依赖开关（对应 Chart.yaml 中**注释**的 dependencies；启用前需先取消注释 + helm dependency update）──
 # 此处仅占位记录开关，默认 false；启用某依赖时在 values-<env>.yaml 置 true。

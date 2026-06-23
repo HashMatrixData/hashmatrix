@@ -1,2 +1,13 @@
-platform-common 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/platform-common 贡献后充实；关联 HashMatrixData/hashmatrix#2。
+platform-common（平台公共服务）已渲染：Deployment + Service `platform-common`（应用 8089 / 管理 9089）。
+datasource → in-cluster PG `{{ .Values.datasource.host }}:{{ .Values.datasource.port }}/{{ .Values.datasource.db }}`（纯 JDBC/HikariCP，无 JPA）。
+
+就绪自检：
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/platform-common
+  kubectl -n {{ .Release.Namespace }} exec deploy/platform-common -- \
+    sh -c 'wget -qO- http://127.0.0.1:{{ .Values.managementPort }}/actuator/health/readiness'
+
+经网关可达（受保护路由 /api/platform/*，需 OIDC token）：
+  curl -H "Authorization: Bearer <token>" http://<gateway>:9080/api/platform/info
+  # auth-tenant 链注入 X-Tenant-* 后到达 platform-common；链路通 + readiness 真绿即算可达。
+
+关联 M1 贯通主线（I5 · platform-common 真实部署）。

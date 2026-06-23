@@ -1,2 +1,14 @@
-control-plane 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/control-plane 贡献后充实；关联 HashMatrixData/hashmatrix#2。
+control-plane（多租户控制平面）已渲染：Deployment + Service `control-plane`（应用 8081 / 管理 9081）。
+datasource → in-cluster PG `{{ .Values.datasource.host }}:{{ .Values.datasource.port }}/{{ .Values.datasource.db }}`（Flyway 管 schema）。
+身份开通：{{ if .Values.keycloak.enabled }}真实 Keycloak Admin（identity=keycloak，server={{ .Values.keycloak.serverUrl }}）{{ else }}stub（默认，未接活 Keycloak）{{ end }}。
+
+就绪自检：
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/control-plane
+  kubectl -n {{ .Release.Namespace }} exec deploy/control-plane -- \
+    sh -c 'wget -qO- http://127.0.0.1:{{ .Values.managementPort }}/actuator/health/readiness'
+
+经网关可达（受保护路由 /api/v1/*，需 OIDC token；网关 strip 部署级 /api 对外为 /v1/...）：
+  curl -H "Authorization: Bearer <token>" http://<gateway>:9080/api/v1/me/tenants
+  # auth-tenant 链注入 X-Tenant-* 后到达 control-plane；M1 开通编排可 stub/派生，链路通即算可达。
+
+关联 M1 贯通主线（I5 · control-plane 真实部署）；身份开通 D6（M1 真实 IdentityProvisioner，余 stub/后置）。

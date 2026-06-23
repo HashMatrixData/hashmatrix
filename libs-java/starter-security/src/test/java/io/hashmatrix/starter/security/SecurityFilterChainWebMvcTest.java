@@ -100,7 +100,16 @@ class SecurityFilterChainWebMvcTest {
     }
 
     @ParameterizedTest(name = "探针放行(非 401/403): {0}")
-    @ValueSource(strings = {"/actuator/health", "/actuator/info", "/actuator/prometheus"})
+    @ValueSource(
+            strings = {
+                "/actuator/health",
+                // K8s 存活/就绪探针子路径——精确路径放行不覆盖，须靠 /actuator/health/** 通配（hashmatrix#26）。
+                // 若默认 permitPaths 退回精确路径，这两条立即被 anyRequest().authenticated() 拒成 401，本测试报警。
+                "/actuator/health/liveness",
+                "/actuator/health/readiness",
+                "/actuator/info",
+                "/actuator/prometheus"
+            })
     void defaultPermitPathsAreNotBlockedBySecurity(String path) throws Exception {
         // 唯一关切：默认 permitPaths 被安全链<b>放行</b>（匿名访问未被 401/403 拦）。
         // 本上下文无 actuator、无该资源处理器，故请求穿过安全链后在 MVC 层的最终状态码（无处理器 404、

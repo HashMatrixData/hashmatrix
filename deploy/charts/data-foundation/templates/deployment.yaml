@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: security
+  name: data-foundation
   labels:
-    {{- include "security.labels" . | nindent 4 }}
-    app.kubernetes.io/component: security
+    {{- include "data-foundation.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-foundation
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      app.kubernetes.io/component: security
+      app.kubernetes.io/component: data-foundation
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        {{- include "security.labels" . | nindent 8 }}
-        app.kubernetes.io/component: security
+        {{- include "data-foundation.labels" . | nindent 8 }}
+        app.kubernetes.io/component: data-foundation
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      # 不带 runAsUser（由镜像 USER 决定）即满足 restricted PSA 的 runAsNonRoot 校验——
-      # 镜像 Dockerfile 已用数字 USER 10001（security#11），kubelet 可预判非 root，无需 chart 钉死。
+      # 镜像 Dockerfile 已 USER 1001（非 root 数字 uid，见子仓 Dockerfile）；此处显式声明 + seccomp，
+      # 不带 runAsUser（由镜像 USER 决定）即满足 restricted PSA 的 runAsNonRoot 校验。
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: security
-          image: {{ include "security.image" . | quote }}
+        - name: data-foundation
+          image: {{ include "data-foundation.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -42,33 +42,22 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: {{ . | quote }}
             {{- end }}
-            # ── 数据源（infra-dev in-cluster PG，独立 db `security`）。Flowable 复用本连接自建 ACT_* ──
-            - name: PG_HOST
-              value: {{ .Values.datasource.host | quote }}
-            - name: PG_PORT
-              value: {{ .Values.datasource.port | quote }}
-            - name: PG_DB
-              value: {{ .Values.datasource.db | quote }}
-            - name: PG_USER
-              value: {{ .Values.datasource.user | quote }}
-            # 🔴 dev 占位明文；生产改 secretKeyRef/ESO 注入。
-            - name: PG_PASSWORD
-              value: {{ .Values.datasource.password | quote }}
+            # M1 无持久 datasource（连接器目录骨架）；租户头由网关强制注入，服务侧不强制（app 默认）。
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
             - name: management
               containerPort: {{ .Values.managementPort }}
           readinessProbe:
-            # deps-optional readiness：仅看应用 readinessState（PG 缺失不拖垮）。探管理端口。
-            # failureThreshold 给足启动窗（Flowable 启动期建 ACT_* 表，比纯 web 慢）。
+            # deps-optional readiness：仅看应用 readinessState。探管理端口。
+            # 无 schema 初始化 → failureThreshold 较 governance/security 收紧。
             httpGet:
               path: /actuator/health/readiness
               port: management
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 18
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
