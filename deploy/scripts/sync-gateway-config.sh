@@ -28,6 +28,7 @@ fi
 PAIRS=(
   "$SRC/apisix/config.yaml:$DST/config.yaml"
   "$SRC/plugins/tenant-context.lua:$DST/plugins/tenant-context.lua"
+  "$SRC/plugins/identity-context.lua:$DST/plugins/identity-context.lua"
   "$SRC/plugins/audit-log.lua:$DST/plugins/audit-log.lua"
   "$SRC/keycloak/realm-export.json:$DST_INFRA/realm-export.json"
 )
