@@ -56,6 +56,11 @@ data:
             active_tenant_claim: active_organization
             fallback_claim: tenant
             require_tenant: true
+          # identity-context：据同一 X-Userinfo 注入 X-User(sub)/X-Roles(realm roles)，供应用方法级 RBAC。
+          identity-context:
+            userinfo_header: X-Userinfo
+            roles_claim: roles
+            require_identity: true
           audit-log: {}
     routes:
       # 受保护路由：共享 auth-tenant 链 + 按租户限流。无 token -> 401；合法 token -> 上游可见 X-Tenant-*。
@@ -103,9 +108,9 @@ data:
       # priority 高于 protected-api（/api/*）以确保 /api/security/* 不被通配兜底抢走（同 privacy-api）；
       # security 后端 ProbeController 服务**全路径** /api/security/probe（@RequestMapping("/api/security")，
       # 无 context-path），故不剥 /api 前缀（无 proxy-rewrite）；后端改路径时需同步本 uri。
-      # ⚠️ auth-tenant 链当前仅注入 X-Tenant-*，**未注入 X-User/X-Roles**；而 security probe 守
-      #    @PreAuthorize("hasRole('security-viewer')")（据 X-Roles）。故经网关 probe 当前预期 403（链路通+RBAC生效）；
-      #    返回 200 需 I2 在网关补 X-Userinfo→X-User/X-Roles 注入（非本路由可独立解决）。
+      # auth-tenant 链经 identity-context 注入 X-User/X-Roles（#11）；security probe 守
+      #    @PreAuthorize("hasRole('security-viewer')")（据 X-Roles）。持 security-viewer 角色的 token → 200；
+      #    无该角色 → 403；匿名 → 401。（端到端 200 还需 security 服务真实部署，见 #38。）
       - id: security-api
         name: security-api
         desc: "数据安全分系统受保护路由（probe / 分类分级 / 审计）"

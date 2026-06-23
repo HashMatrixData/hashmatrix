@@ -58,6 +58,10 @@ spec:
               subPath: tenant-context.lua
               readOnly: true
             - name: plugins
+              mountPath: /usr/local/apisix/apisix/plugins/identity-context.lua
+              subPath: identity-context.lua
+              readOnly: true
+            - name: plugins
               mountPath: /usr/local/apisix/apisix/plugins/audit-log.lua
               subPath: audit-log.lua
               readOnly: true
