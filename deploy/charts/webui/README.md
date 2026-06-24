@@ -23,6 +23,26 @@
 
 gateway chart 已加 `webui-console-upstream` / `webui-admin-upstream` + 两条**公共**路由（无鉴权，`priority:0`）：按 Host 头区分 `webui.hosts.console` → console、`webui.hosts.admin` → admin，`uri: /*` 承接 SPA shell/assets/config.js。`/api/*` 受保护路由 `priority` 更高 → 两面的后端调用各走对应后端路由（console→各业务，admin→control-plane `/api/v1/*`），同时保留 console/admin 同源隔离。本地经 `/etc/hosts` 或 `curl -H "Host: ..."` 访问。
 
+## 本地浏览器登录（localdev · kind）
+
+浏览器走 OIDC 授权码流时，**token 的 `iss` 必须与网关 `oidc.discovery` 同主机**（集群内均为 `keycloak:8080`），否则登录后 `/api` 全 401（issuer split-horizon）。故浏览器侧也须用 `keycloak:8080` 这一主机名取 token——通过 hosts 映射 + port-forward 让宿主可达：
+
+```bash
+# 1) hosts（一次性，需 sudo）：让 keycloak / console.localdev 解析到本机
+echo "127.0.0.1 keycloak console.localdev" | sudo tee -a /etc/hosts
+
+# 2) port-forward（前台各开一个，或加 & 后台）
+kubectl port-forward -n demo svc/keycloak 8080:8080
+kubectl port-forward -n demo svc/platform-gateway 9080:9080
+
+# 3) 浏览器打开（demo 用户 alice / Passw0rd!，租户 acme）
+open http://console.localdev:9080/
+```
+
+- 登录重定向至 `http://keycloak:8080/realms/hashmatrix/...`（= `values-localdev` 的 `console.config.oidcAuthority`），token `iss=http://keycloak:8080` → 网关验签通过 → `/api/meta/search` 返回真实目录。
+- 客户端为 realm 公共客户端 `hashmatrix-webui`（授权码流 + PKCE，见 `services/gateway/keycloak/realm-export.json`）。
+- 不设 hosts 时 console 页面仍可加载（`curl -H "Host: console.localdev" http://127.0.0.1:9080/`），但浏览器交互式登录依赖上述 hosts 映射。
+
 ## ⚠️ 生产硬化 follow-up（post-M1）
 
 官方 `nginx:1.27-alpine` master 以 root 起、绑特权口 80，故本 chart **未设 `runAsNonRoot: true`**（localdev PSA=baseline 可跑；`drop ALL` 后加回 `NET_BIND_SERVICE` 以绑 80）。生产/restricted PSA 应切 **nginx-unprivileged**（监听 8080）+ `runAsNonRoot: true`——属子仓镜像 + 本 chart 协同的 post-M1 硬化项。
