@@ -90,8 +90,13 @@ platform-common:
   jvmOpts: "-XX:MaxRAMPercentage=70.0"
 
 # webui（前端）：console + admin 双 nginx 静态 SPA（轻量，非 JVM，用子 chart 小资源默认）。
-# OIDC authority 指向**浏览器可达**的 dev Keycloak（宿主暴露 8180；勿用集群内 keycloak:8080——浏览器够不到）。
-# 🔴 红线：脱敏占位（*.localdev / localhost）；真实域名/realm 部署级注入。
+# 🔑 OIDC authority = 集群内 Service 名 `keycloak:8080`（**与网关 oidc.discovery 同主机**）——这是浏览器
+#    登录能打通的关键：网关验签时校验 token 的 iss == discovery 的 issuer（keycloak:8080）；若浏览器经
+#    localhost:8180 取 token，iss=localhost:8180 ≠ keycloak:8080 → 登录后 /api 全 401（issuer split-horizon）。
+#    故浏览器侧须让 `keycloak` 解析到本机：/etc/hosts 加 `127.0.0.1 keycloak console.localdev`，并
+#    `kubectl port-forward svc/keycloak 8080:8080` + `svc/platform-gateway 9080:9080`，浏览器开
+#    http://console.localdev:9080/ 登录（详见 deploy/charts/webui/README 本地登录章节）。
+# 🔴 红线：脱敏占位（*.localdev / keycloak / Acme Demo Tech）；真实域名/realm 部署级注入。
 webui:
   enabled: true
   branding:
@@ -100,7 +105,7 @@ webui:
   console:
     config:
       apiBaseUrl: "/api"
-      oidcAuthority: "http://localhost:8180/realms/hashmatrix"
+      oidcAuthority: "http://keycloak:8080/realms/hashmatrix"
       oidcClientId: "hashmatrix-webui"
   admin:
     # admin 运营面镜像后置（post-M1，见 webui#3 / PR #23 仅出 console 镜像）：暂关运营面，
@@ -108,5 +113,5 @@ webui:
     enabled: false
     config:
       apiBaseUrl: "/api"
-      oidcAuthority: "http://localhost:8180/realms/hashmatrix"
+      oidcAuthority: "http://keycloak:8080/realms/hashmatrix"
       oidcClientId: "hashmatrix-admin"
