@@ -158,6 +158,14 @@ data:
       # control-plane 受保护路由：复用 auth-tenant 链，路由到多租户控制平面。
       # priority 高于 protected-api（/api/*）防被通配兜底抢走；后端服务全路径 /api/v1/...
       # （网关 strip 部署级 /api，对外 /v1/...；@RequestMapping("/api/v1/...")，无 context-path）→ 不剥前缀。
+      #
+      # ⚖️ control-plane = **共享控制平面**（跨租户管理，非租户数据面）→ 路由级覆盖 tenant-context 为
+      #    require_tenant=false：平台管理员（superadmin，无单一租户上下文）调用跨租户高权端点
+      #    （/{id}/approval、/suspend…）不应被 tenant-context fail-closed 403（M1·I4 实测：原 require_tenant=true
+      #    下 superadmin 被 403）；同时修复多 membership 用户无 active_organization 时连 /v1/me/tenants 都进不去的
+      #    鸡生蛋问题。openid-connect 仍验签（401）、identity-context 仍注入 X-User/X-Roles；有租户的调用方仍被注入
+      #    X-Tenant-*。鉴权下沉到 control-plane 方法级 @PreAuthorize(hasRole('SUPERADMIN'))（据 X-Roles）。
+      #    （不为图省事给 superadmin 塞假租户——那会破坏 admin 平面「无租户上下文」不变量，见 gateway#13。）
       - id: control-plane-api
         name: control-plane-api
         desc: "多租户控制平面受保护路由（租户注册/审批/开通/配额 + /v1/me/tenants）"
@@ -166,6 +174,14 @@ data:
         upstream_id: control-plane-upstream
         plugin_config_id: auth-tenant
         plugins:
+          # 路由级覆盖 auth-tenant 的 tenant-context（APISIX 路由级整体覆盖 plugin_config 同名插件）：
+          # 仅改 require_tenant=false，其余字段须与 auth-tenant 一致（否则注入行为漂移）。
+          tenant-context:
+            userinfo_header: X-Userinfo
+            tenant_claim: organization
+            active_tenant_claim: active_organization
+            fallback_claim: tenant
+            require_tenant: false
           limit-count:
             count: {{ .Values.rateLimit.count }}
             time_window: {{ .Values.rateLimit.timeWindow }}
